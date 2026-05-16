@@ -191,6 +191,14 @@ export function updateSetting(key, value) {
   window.fbFunctions?.fbUpdateSetting(key, value);
 }
 
+export function patchSlotFromFirebase(date, fields) {
+  const slots = _load("pmg_slots", []);
+  const idx   = slots.findIndex(s => s.date === date);
+  if (idx < 0) return;
+  slots[idx] = { ...slots[idx], ...fields };
+  _save("pmg_slots", slots);
+}
+
 export function updateFutureSlotsPlaces(places) {
   const today = dateToKey(new Date());
   const slots = _load("pmg_slots", []);

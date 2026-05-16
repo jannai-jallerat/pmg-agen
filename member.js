@@ -9,7 +9,7 @@ import {
   addRegistration, deleteRegistration, closeSlot, openSlot,
   incrementQuota, decrementQuota, getQuotaState,
   getInitials, fullName, getAvatarColorIndex, getAvatarBgColor,
-  getMembers,
+  getMembers, patchSlotFromFirebase,
 } from './data.js';
 import { currentMember } from './auth.js';
 import {
@@ -49,7 +49,7 @@ function setupMemberWeekListeners(mondayKey) {
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
     const key = dateToKey(day);
-    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs, slotDoc) => {
       const slot = memberState.slotsMap[slotDate];
       if (!slot) return;
       const allMembers = getMembers();
@@ -57,6 +57,10 @@ function setupMemberWeekListeners(mondayKey) {
         const m = allMembers.find(mb => mb.id === r.member_id);
         return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
       });
+      if (slotDoc.places !== undefined && slotDoc.places !== slot.places) {
+        slot.places = slotDoc.places;
+        patchSlotFromFirebase(slotDate, { places: slotDoc.places });
+      }
       if (memberState.selectedWeek !== mondayKey) return;
       refreshDots(document.getElementById("member-cal-body"),
         memberState.year, memberState.month, currentMember?.id, memberState.slotsMap);
@@ -72,7 +76,7 @@ function setupModWeekListeners(mondayKey) {
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
     const key = dateToKey(day);
-    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs, slotDoc) => {
       const slot = modState.slotsMap[slotDate];
       if (!slot) return;
       const allMembers = getMembers();
@@ -80,6 +84,10 @@ function setupModWeekListeners(mondayKey) {
         const m = allMembers.find(mb => mb.id === r.member_id);
         return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
       });
+      if (slotDoc.places !== undefined && slotDoc.places !== slot.places) {
+        slot.places = slotDoc.places;
+        patchSlotFromFirebase(slotDate, { places: slotDoc.places });
+      }
       if (modState.selectedWeek !== mondayKey) return;
       refreshDots(document.getElementById("mod-cal-body"),
         modState.year, modState.month, null, modState.slotsMap);

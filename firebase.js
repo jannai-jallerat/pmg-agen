@@ -7,7 +7,7 @@
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
-         deleteDoc, setDoc, query, where, orderBy, onSnapshot }
+         deleteDoc, setDoc, writeBatch, query, where, orderBy, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -104,10 +104,14 @@ async function fbOpenSlot(date) {
 }
 
 async function fbUpdateFutureSlotsPlaces(places, dates) {
-  for (const date of dates) {
-    try {
-      await setDoc(doc(db, "slots", date), { places }, { merge: true });
-    } catch {}
+  try {
+    const batch = writeBatch(db);
+    dates.forEach(date => batch.update(doc(db, "slots", date), { places }));
+    await batch.commit();
+  } catch {
+    for (const date of dates) {
+      try { await setDoc(doc(db, "slots", date), { places }, { merge: true }); } catch {}
+    }
   }
 }
 
@@ -145,10 +149,25 @@ async function fbAddRegistration(reg) {
 /* ── Écoute temps réel (onSnapshot) ── */
 
 function fbListenDay(slotDate, callback) {
-  const q = query(collection(db, "registrations"), where("slot_date", "==", slotDate));
-  return onSnapshot(q, snap => {
-    callback(slotDate, snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  let slotDoc  = null;
+  let regsData = null;
+
+  function fire() {
+    if (slotDoc !== null && regsData !== null) callback(slotDate, regsData, slotDoc);
+  }
+
+  const unsubSlot = onSnapshot(doc(db, "slots", slotDate), snap => {
+    slotDoc = snap.exists() ? snap.data() : {};
+    fire();
   }, () => {});
+
+  const q = query(collection(db, "registrations"), where("slot_date", "==", slotDate));
+  const unsubRegs = onSnapshot(q, snap => {
+    regsData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    fire();
+  }, () => {});
+
+  return () => { unsubSlot(); unsubRegs(); };
 }
 
 function fbListenWeek(dateDebut, dateFin, callback) {

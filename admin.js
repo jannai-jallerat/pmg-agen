@@ -9,7 +9,7 @@ import {
   getMembers, getMemberUpcomingCount,
   addMember, deleteMember, setModerator, importMembers,
   updateSetting, updateFutureSlotsPlaces, closeSlot, openSlot, deleteRegistration,
-  _load,
+  patchSlotFromFirebase, _load,
 } from './data.js';
 import {
   renderCalendarGrid, refreshDots, weekRangeLabel,
@@ -43,7 +43,7 @@ function setupAdminWeekListeners(mondayKey) {
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
     const key = dateToKey(day);
-    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs, slotDoc) => {
       const slot = adminState.slotsMap[slotDate];
       if (!slot) return;
       const allMembers = getMembers();
@@ -51,6 +51,10 @@ function setupAdminWeekListeners(mondayKey) {
         const m = allMembers.find(mb => mb.id === r.member_id);
         return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
       });
+      if (slotDoc.places !== undefined && slotDoc.places !== slot.places) {
+        slot.places = slotDoc.places;
+        patchSlotFromFirebase(slotDate, { places: slotDoc.places });
+      }
       if (adminState.selectedWeek !== mondayKey) return;
       refreshDots(document.getElementById("admin-cal-body"),
         adminState.year, adminState.month, null, adminState.slotsMap);
