@@ -195,12 +195,19 @@ export function updateFutureSlotsPlaces(places) {
   const today = dateToKey(new Date());
   const slots = _load("pmg_slots", []);
   let count = 0;
+  const futureDates = [];
   const updated = slots.map(s => {
-    if (s.date >= today) { count++; return { ...s, places }; }
+    if (s.date >= today) {
+      count++;
+      futureDates.push(s.date);
+      return { ...s, places };
+    }
     return s;
   });
   _save("pmg_slots", updated);
-  window.fbFunctions?.fbUpdateFutureSlotsPlaces(places, today);
+  if (futureDates.length > 0) {
+    window.fbFunctions?.fbUpdateFutureSlotsPlaces(places, futureDates);
+  }
   return count;
 }
 

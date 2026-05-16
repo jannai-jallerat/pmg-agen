@@ -517,7 +517,7 @@ export function bindAdminSettings() {
       updateSetting("places_default", val);
       const count = updateFutureSlotsPlaces(val);
       adminState.settings.places_default = String(val);
-      window.showToast(`${count} créneau${count > 1 ? "x" : ""} mis à jour.`);
+      window.showToast(`${count} créneau${count > 1 ? "x" : ""} mis à jour avec ${val} place${val > 1 ? "s" : ""}.`);
     } catch { window.showError(); }
   });
 }

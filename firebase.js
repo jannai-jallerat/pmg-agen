@@ -103,14 +103,12 @@ async function fbOpenSlot(date) {
   } catch {}
 }
 
-async function fbUpdateFutureSlotsPlaces(places, today) {
-  try {
-    const q    = query(collection(db, "slots"), where("date", ">=", today));
-    const snap = await getDocs(q);
-    await Promise.allSettled(
-      snap.docs.map(d => setDoc(d.ref, { places }, { merge: true }))
-    );
-  } catch {}
+async function fbUpdateFutureSlotsPlaces(places, dates) {
+  for (const date of dates) {
+    try {
+      await setDoc(doc(db, "slots", date), { places }, { merge: true });
+    } catch {}
+  }
 }
 
 /* ── Inscriptions (doc ID = UUID local) ── */
