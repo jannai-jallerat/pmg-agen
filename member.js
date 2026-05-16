@@ -215,10 +215,6 @@ function shiftMemberMonth(delta) {
 
   if (year < curYear || (year === curYear && month < curMonth)) return;
 
-  let maxYear = curYear, maxMonth = curMonth + 1;
-  if (maxMonth > 11) { maxMonth = 0; maxYear++; }
-  if (year > maxYear || (year === maxYear && month > maxMonth)) return;
-
   memberState.year = year; memberState.month = month; memberState.selectedWeek = null;
   clearListeners();
   renderMemberCalendar();
@@ -242,13 +238,7 @@ function renderMemberCalendar() {
   const curMonth = today.getMonth();
 
   document.getElementById("member-prev-month").disabled = (year === curYear && month === curMonth);
-
-  let maxYear = curYear, maxMonth = curMonth + 1;
-  if (maxMonth > 11) { maxMonth = 0; maxYear++; }
-  let nextYear = year, nextMonth = month + 1;
-  if (nextMonth > 11) { nextMonth = 0; nextYear++; }
-  document.getElementById("member-next-month").disabled =
-    (nextYear > maxYear || (nextYear === maxYear && nextMonth > maxMonth));
+  document.getElementById("member-next-month").disabled = false;
 
   const locked     = !isMonthAccessibleForMember(year, month);
   const grid       = document.getElementById("member-calendar-grid");
@@ -278,7 +268,7 @@ function renderMemberCalendar() {
       .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
-  renderCalendarGrid(calBody, year, month, member.id, locked ? null : memberState.selectedWeek, handleWeekClick, memberState.slotsMap);
+  renderCalendarGrid(calBody, year, month, member.id, locked ? null : memberState.selectedWeek, handleWeekClick, locked ? {} : memberState.slotsMap);
   if (!memberState.selectedWeek || locked) weekDetail.hidden = true;
   else renderMemberWeekDetail(memberState.selectedWeek);
 }

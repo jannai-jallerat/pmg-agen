@@ -35,7 +35,7 @@ export function lockedMonthMessage(targetYear, targetMonth) {
   let prevYear = targetYear, prevMonth = targetMonth - 1;
   if (prevMonth < 0) { prevMonth = 11; prevYear--; }
   const lastDay = lastDayOfMonth(prevYear, prevMonth);
-  return "Disponible le " + lastDay.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return "Disponible le " + lastDay.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
 /* ── Dots calendrier (slotsMap passé en paramètre) ── */

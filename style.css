@@ -309,7 +309,7 @@ a { color: inherit; }
 }
 
 .cal-grid-locked {
-  opacity: 0.4;
+  opacity: 0.35;
   filter: grayscale(1);
   pointer-events: none;
   user-select: none;
@@ -325,14 +325,15 @@ a { color: inherit; }
   background: rgba(255, 255, 255, 0.75);
   border-radius: var(--radius);
   z-index: 10;
-  gap: .5rem;
+  gap: .4rem;
   cursor: default;
 }
 .cal-lock-overlay[hidden] { display: none !important; }
 
 .cal-lock-icon {
-  font-size: 32px;
+  font-size: 36px;
   line-height: 1;
+  color: #c4c8ce;
 }
 
 .cal-lock-text {
@@ -340,7 +341,15 @@ a { color: inherit; }
   color: #3a3a4a;
   text-align: center;
   padding: 0 1.25rem;
-  font-weight: 500;
+  font-weight: 600;
+  margin-top: .25rem;
+}
+
+.cal-lock-subtext {
+  font-size: 11.5px;
+  color: var(--text3);
+  text-align: center;
+  padding: 0 1.25rem;
 }
 
 /* ═══════════════════════════════════════════
