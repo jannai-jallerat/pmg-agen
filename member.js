@@ -9,6 +9,7 @@ import {
   addRegistration, deleteRegistration, closeSlot, openSlot,
   incrementQuota, decrementQuota, getQuotaState,
   getInitials, fullName, getAvatarColorIndex, getAvatarBgColor,
+  getMembers,
 } from './data.js';
 import { currentMember } from './auth.js';
 import {
@@ -31,6 +32,62 @@ const modState = {
   selectedWeek: null,
   slotsMap:     {},
 };
+
+/* ── Listeners temps réel ── */
+
+let activeListeners = [];
+
+function clearListeners() {
+  activeListeners.forEach(fn => { try { fn(); } catch {} });
+  activeListeners = [];
+}
+window.clearMemberListeners = clearListeners;
+
+function setupMemberWeekListeners(mondayKey) {
+  if (!window.fbFunctions?.fbListenDay) return;
+  const monday = keyToDate(mondayKey);
+  for (let i = 0; i < 5; i++) {
+    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key = dateToKey(day);
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+      const slot = memberState.slotsMap[slotDate];
+      if (!slot) return;
+      const allMembers = getMembers();
+      slot.inscrits = regs.map(r => {
+        const m = allMembers.find(mb => mb.id === r.member_id);
+        return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
+      });
+      if (memberState.selectedWeek !== mondayKey) return;
+      refreshDots(document.getElementById("member-cal-body"),
+        memberState.year, memberState.month, currentMember?.id, memberState.slotsMap);
+      renderMemberWeekDetail(mondayKey);
+    });
+    activeListeners.push(unsub);
+  }
+}
+
+function setupModWeekListeners(mondayKey) {
+  if (!window.fbFunctions?.fbListenDay) return;
+  const monday = keyToDate(mondayKey);
+  for (let i = 0; i < 5; i++) {
+    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key = dateToKey(day);
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+      const slot = modState.slotsMap[slotDate];
+      if (!slot) return;
+      const allMembers = getMembers();
+      slot.inscrits = regs.map(r => {
+        const m = allMembers.find(mb => mb.id === r.member_id);
+        return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
+      });
+      if (modState.selectedWeek !== mondayKey) return;
+      refreshDots(document.getElementById("mod-cal-body"),
+        modState.year, modState.month, null, modState.slotsMap);
+      renderModWeekDetail(mondayKey);
+    });
+    activeListeners.push(unsub);
+  }
+}
 
 /* ════════════════════════════════════════
    POINT D'ENTRÉE
@@ -124,6 +181,7 @@ export function bindMemberTabs() {
 }
 
 function switchMemberTab(tabId) {
+  clearListeners();
   document.querySelectorAll("#member-tabs .tab").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === tabId);
   });
@@ -133,6 +191,7 @@ function switchMemberTab(tabId) {
 
   if (tabId === "my-slots")   renderMySlots();
   if (tabId === "moderation") renderModCalendar();
+  if (tabId === "calendar" && memberState.selectedWeek) setupMemberWeekListeners(memberState.selectedWeek);
 }
 
 /* ════════════════════════════════════════
@@ -161,6 +220,7 @@ function shiftMemberMonth(delta) {
   if (year > maxYear || (year === maxYear && month > maxMonth)) return;
 
   memberState.year = year; memberState.month = month; memberState.selectedWeek = null;
+  clearListeners();
   renderMemberCalendar();
 }
 
@@ -210,8 +270,10 @@ function renderMemberCalendar() {
 
   function handleWeekClick(mondayKey) {
     memberState.selectedWeek = mondayKey;
+    clearListeners();
     renderCalendarGrid(calBody, year, month, member.id, mondayKey, handleWeekClick, memberState.slotsMap);
     renderMemberWeekDetail(mondayKey);
+    setupMemberWeekListeners(mondayKey);
     setTimeout(() => document.getElementById("member-week-detail")
       .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
@@ -459,6 +521,7 @@ function shiftModMonth(delta) {
   if (year > maxYear || (year === maxYear && month > maxMonth)) return;
 
   modState.year = year; modState.month = month; modState.selectedWeek = null;
+  clearListeners();
   try { generateMissingSlots(); } catch {}
   renderModCalendar();
 }
@@ -489,15 +552,20 @@ function renderModCalendar() {
 
   function handleWeekClick(mondayKey) {
     modState.selectedWeek = mondayKey;
+    clearListeners();
     renderCalendarGrid(calBody, year, month, null, mondayKey, handleWeekClick, modState.slotsMap);
     renderModWeekDetail(mondayKey);
+    setupModWeekListeners(mondayKey);
     setTimeout(() => document.getElementById("mod-week-detail")
       .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
   renderCalendarGrid(calBody, year, month, null, modState.selectedWeek, handleWeekClick, modState.slotsMap);
   if (!modState.selectedWeek) document.getElementById("mod-week-detail").hidden = true;
-  else renderModWeekDetail(modState.selectedWeek);
+  else {
+    renderModWeekDetail(modState.selectedWeek);
+    setupModWeekListeners(modState.selectedWeek);
+  }
 }
 
 /* ════════════════════════════════════════

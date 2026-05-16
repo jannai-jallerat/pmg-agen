@@ -27,6 +27,39 @@ const adminState = {
 
 let _closeSlotCallback = null;
 
+/* ── Listeners temps réel ── */
+
+let adminListeners = [];
+
+function clearAdminListeners() {
+  adminListeners.forEach(fn => { try { fn(); } catch {} });
+  adminListeners = [];
+}
+window.clearAdminListeners = clearAdminListeners;
+
+function setupAdminWeekListeners(mondayKey) {
+  if (!window.fbFunctions?.fbListenDay) return;
+  const monday = keyToDate(mondayKey);
+  for (let i = 0; i < 5; i++) {
+    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key = dateToKey(day);
+    const unsub = window.fbFunctions.fbListenDay(key, (slotDate, regs) => {
+      const slot = adminState.slotsMap[slotDate];
+      if (!slot) return;
+      const allMembers = getMembers();
+      slot.inscrits = regs.map(r => {
+        const m = allMembers.find(mb => mb.id === r.member_id);
+        return m || { id: r.member_id, prenom: r.member_prenom, nom: r.member_nom, tel: r.member_tel };
+      });
+      if (adminState.selectedWeek !== mondayKey) return;
+      refreshDots(document.getElementById("admin-cal-body"),
+        adminState.year, adminState.month, null, adminState.slotsMap);
+      renderAdminWeekDetail(mondayKey);
+    });
+    adminListeners.push(unsub);
+  }
+}
+
 /* ════════════════════════════════════════
    POINT D'ENTRÉE
 ════════════════════════════════════════ */
@@ -54,6 +87,7 @@ export function bindAdminTabs() {
 }
 
 function switchAdminTab(tabId) {
+  clearAdminListeners();
   document.querySelectorAll("#admin-tabs .tab").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === tabId);
   });
@@ -70,6 +104,7 @@ function switchAdminTab(tabId) {
   if (tabId === "admin-members")  renderAdminMembers();
   if (tabId === "admin-settings") renderAdminSettings();
   if (tabId === "admin-stats")    renderAdminStats();
+  if (tabId === "admin-calendar" && adminState.selectedWeek) setupAdminWeekListeners(adminState.selectedWeek);
 }
 
 /* ════════════════════════════════════════
@@ -106,6 +141,7 @@ function shiftAdminMonth(delta) {
   if (year > maxYear || (year === maxYear && month > maxMonth)) return;
 
   adminState.year = year; adminState.month = month; adminState.selectedWeek = null;
+  clearAdminListeners();
   try { generateMissingSlots(); } catch {}
   renderAdminCalendar();
 }
@@ -136,15 +172,20 @@ function renderAdminCalendar() {
 
   function handleWeekClick(mondayKey) {
     adminState.selectedWeek = mondayKey;
+    clearAdminListeners();
     renderCalendarGrid(calBody, year, month, null, mondayKey, handleWeekClick, adminState.slotsMap);
     renderAdminWeekDetail(mondayKey);
+    setupAdminWeekListeners(mondayKey);
     setTimeout(() => document.getElementById("admin-week-detail")
       .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
   renderCalendarGrid(calBody, year, month, null, adminState.selectedWeek, handleWeekClick, adminState.slotsMap);
   if (!adminState.selectedWeek) document.getElementById("admin-week-detail").hidden = true;
-  else renderAdminWeekDetail(adminState.selectedWeek);
+  else {
+    renderAdminWeekDetail(adminState.selectedWeek);
+    setupAdminWeekListeners(adminState.selectedWeek);
+  }
 }
 
 /* ════════════════════════════════════════

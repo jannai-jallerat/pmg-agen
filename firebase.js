@@ -7,7 +7,7 @@
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
-         deleteDoc, setDoc, query, where, orderBy }
+         deleteDoc, setDoc, query, where, orderBy, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -123,6 +123,13 @@ async function fbGetRegistrations(slotDate) {
 
 async function fbAddRegistration(reg) {
   try {
+    const q    = query(collection(db, "registrations"), where("slot_date", "==", reg.slot_date));
+    const snap = await getDocs(q);
+    const regs = snap.docs.map(d => d.data());
+    if (regs.some(r => r.member_id === reg.member_id)) return "DEJA_INSCRIT";
+    const slotSnap = await getDoc(doc(db, "slots", reg.slot_date));
+    const places   = slotSnap.exists() ? (slotSnap.data().places || 2) : 2;
+    if (regs.length >= places) return "COMPLET";
     await setDoc(doc(db, "registrations", reg.id), {
       slot_date:     reg.slot_date,
       slot_id:       reg.slot_id,
@@ -131,7 +138,29 @@ async function fbAddRegistration(reg) {
       member_nom:    reg.member_nom,
       member_tel:    reg.member_tel || "",
     });
-  } catch {}
+    return "OK";
+  } catch { return "ERROR"; }
+}
+
+/* ── Écoute temps réel (onSnapshot) ── */
+
+function fbListenDay(slotDate, callback) {
+  const q = query(collection(db, "registrations"), where("slot_date", "==", slotDate));
+  return onSnapshot(q, snap => {
+    callback(slotDate, snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, () => {});
+}
+
+function fbListenWeek(dateDebut, dateFin, callback) {
+  const q = query(
+    collection(db, "registrations"),
+    where("slot_date", ">=", dateDebut),
+    where("slot_date", "<=", dateFin),
+    orderBy("slot_date"),
+  );
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, () => {});
 }
 
 async function fbDeleteRegistration(id) {
@@ -184,6 +213,7 @@ window.fbFunctions = {
   fbGetSettings, fbUpdateSetting,
   fbGetSlots, fbGenerateMissingSlots, fbCloseSlot, fbOpenSlot, fbUpdateFutureSlotsPlaces,
   fbGetRegistrations, fbAddRegistration, fbDeleteRegistration,
+  fbListenDay, fbListenWeek,
   fbGetQuota, fbIncrementQuota, fbDecrementQuota,
   fbSeedIfEmpty,
 };
