@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMG — Présentoir Mobile à la Gare</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2e6da4">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PMG">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 1 — LOGIN MEMBRE
+══════════════════════════════════════════════ -->
+<div id="screen-login" class="screen screen-auth">
+  <div class="auth-logo">
+    <div class="logo-box logo-lg">
+      <span class="logo-pm">PMG</span>
+    </div>
+  </div>
+  <p class="auth-appname">Présentoir Mobile à la Gare</p>
+  <p class="auth-subtitle">Gare d'Agen</p>
+
+  <div class="auth-card">
+    <label class="field-label" for="login-prenom">Prénom</label>
+    <input id="login-prenom" type="text" class="field-input" placeholder="Ex : Sophie" autocomplete="given-name" />
+    <label class="field-label" for="login-nom">Nom</label>
+    <input id="login-nom" type="text" class="field-input" placeholder="Ex : Martin" autocomplete="family-name" />
+    <p id="login-prefill-hint" class="login-prefill-hint" hidden>Pas vous ? Effacez et entrez votre nom</p>
+    <p id="login-error" class="field-error" hidden></p>
+    <button id="login-btn" class="btn btn-primary btn-full">Se connecter</button>
+    <button id="admin-access-btn" class="btn btn-ghost btn-full" style="font-size:.82rem;color:var(--text3);border-color:transparent;">Accès responsable</button>
+  </div>
+
+  <p class="auth-hint">
+    Connectez-vous avec votre prénom et votre nom.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2 — LOGIN ADMIN
+══════════════════════════════════════════════ -->
+<div id="screen-admin-login" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg">
+      <span class="logo-pm">PMG</span>
+    </div>
+  </div>
+  <p class="auth-appname">Accès administrateur</p>
+  <p class="auth-subtitle">Gare d'Agen</p>
+
+  <div class="auth-card">
+    <label class="field-label" for="admin-pwd">Mot de passe</label>
+    <input id="admin-pwd" type="password" class="field-input" placeholder="Mot de passe admin" />
+    <p id="admin-error" class="field-error" hidden></p>
+    <button id="admin-login-btn" class="btn btn-primary btn-full">Accéder</button>
+    <button id="admin-back-btn" class="btn btn-ghost btn-full">← Retour</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 3 — VUE MEMBRE
+══════════════════════════════════════════════ -->
+<div id="screen-member" class="screen" hidden>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo-box logo-sm">
+        <span class="logo-pm">PMG</span>
+      </div>
+      <span class="topbar-title">Présentoir Mobile à la Gare</span>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-avatar" id="member-avatar"></div>
+      <span id="mod-badge" hidden style="background:#f59e0b;color:#fff;font-size:.62rem;font-weight:700;padding:.15rem .42rem;border-radius:.25rem;letter-spacing:.06em;align-self:center;margin-left:.25rem;">MOD</span>
+      <button class="topbar-logout" id="member-logout" title="Déconnexion">
+        <i class="ti ti-logout"></i>
+      </button>
+    </div>
+  </header>
+
+  <div id="member-banner" class="banner" hidden>
+    <i class="ti ti-info-circle"></i>
+    <span id="member-banner-text"></span>
+  </div>
+
+  <div class="quota-bar" id="member-quota-bar">
+    <div class="quota-dots" id="quota-dots"></div>
+    <span class="quota-text" id="quota-text"></span>
+  </div>
+
+  <nav class="tabs" id="member-tabs">
+    <button class="tab active" data-tab="calendar">Calendrier</button>
+    <button class="tab" data-tab="my-slots">Mes inscriptions</button>
+    <button class="tab" data-tab="moderation" id="mod-tab-btn" hidden>Modération</button>
+  </nav>
+
+  <!-- Onglet Calendrier -->
+  <div id="tab-calendar" class="tab-content">
+    <div class="month-nav">
+      <button class="month-btn" id="member-prev-month"><i class="ti ti-chevron-left"></i></button>
+      <span class="month-label" id="member-month-label"></span>
+      <button class="month-btn" id="member-next-month"><i class="ti ti-chevron-right"></i></button>
+    </div>
+
+    <div id="member-locked-month" class="locked-month-card" hidden>
+      <i class="ti ti-lock"></i>
+      <p id="member-locked-text"></p>
+    </div>
+
+    <div id="member-calendar-grid" class="calendar-grid">
+      <div class="cal-header">
+        <span>Lun</span><span>Mar</span><span>Mer</span>
+        <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      </div>
+      <div id="member-cal-body" class="cal-body"></div>
+    </div>
+
+    <div id="member-week-detail" class="week-detail" hidden>
+      <p class="week-title" id="member-week-title"></p>
+      <div id="member-day-cards"></div>
+    </div>
+  </div>
+
+  <!-- Onglet Mes inscriptions -->
+  <div id="tab-my-slots" class="tab-content" hidden>
+    <div id="my-slots-list"></div>
+  </div>
+
+  <!-- Onglet Modération (visible uniquement pour les modérateurs) -->
+  <div id="tab-moderation" class="tab-content" hidden>
+    <div class="month-nav">
+      <button class="month-btn" id="mod-prev-month"><i class="ti ti-chevron-left"></i></button>
+      <span class="month-label" id="mod-month-label"></span>
+      <button class="month-btn" id="mod-next-month"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div id="mod-calendar-grid" class="calendar-grid">
+      <div class="cal-header">
+        <span>Lun</span><span>Mar</span><span>Mer</span>
+        <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      </div>
+      <div id="mod-cal-body" class="cal-body"></div>
+    </div>
+    <div id="mod-week-detail" class="week-detail" hidden>
+      <p class="week-title" id="mod-week-title"></p>
+      <div id="mod-day-cards"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 4 — VUE ADMIN
+══════════════════════════════════════════════ -->
+<div id="screen-admin" class="screen" hidden>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo-box logo-sm">
+        <span class="logo-pm">PMG</span>
+      </div>
+      <span class="topbar-title">Admin — PMG</span>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-avatar" id="admin-avatar">A</div>
+      <button class="topbar-logout" id="admin-logout" title="Déconnexion">
+        <i class="ti ti-logout"></i>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="admin-tabs">
+    <button class="tab active" data-tab="admin-calendar">Calendrier</button>
+    <button class="tab" data-tab="admin-members">Membres</button>
+    <button class="tab" data-tab="admin-settings">Paramètres</button>
+    <button class="tab" data-tab="admin-stats">Statistiques</button>
+  </nav>
+
+  <!-- Onglet Calendrier Admin -->
+  <div id="tab-admin-calendar" class="tab-content">
+    <div class="month-nav">
+      <button class="month-btn" id="admin-prev-month"><i class="ti ti-chevron-left"></i></button>
+      <span class="month-label" id="admin-month-label"></span>
+      <button class="month-btn" id="admin-next-month"><i class="ti ti-chevron-right"></i></button>
+    </div>
+
+    <div id="admin-calendar-grid" class="calendar-grid">
+      <div class="cal-header">
+        <span>Lun</span><span>Mar</span><span>Mer</span>
+        <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      </div>
+      <div id="admin-cal-body" class="cal-body"></div>
+    </div>
+
+    <div id="admin-week-detail" class="week-detail" hidden>
+      <p class="week-title" id="admin-week-title"></p>
+      <div id="admin-day-cards"></div>
+    </div>
+  </div>
+
+  <!-- Onglet Membres -->
+  <div id="tab-admin-members" class="tab-content" hidden>
+    <div class="section-header">
+      <span id="members-count" class="section-count"></span>
+      <div style="display:flex;gap:.4rem;">
+        <button class="btn btn-ghost btn-sm" id="import-members-btn">
+          <i class="ti ti-file-import"></i> Importer
+        </button>
+        <button class="btn btn-primary btn-sm" id="add-member-btn">
+          <i class="ti ti-plus"></i> Ajouter
+        </button>
+      </div>
+    </div>
+    <input type="file" id="import-file-input" accept=".xlsx,.xls,.ods,.csv" hidden>
+    <div class="members-search-wrap">
+      <i class="ti ti-search members-search-icon"></i>
+      <input id="members-search" type="search" class="field-input members-search-input"
+        placeholder="Rechercher un membre..." autocomplete="off" />
+    </div>
+    <div id="members-list"></div>
+  </div>
+
+  <!-- Onglet Statistiques -->
+  <div id="tab-admin-stats" class="tab-content" hidden>
+
+    <div class="month-nav">
+      <button class="month-btn" id="stats-prev-month"><i class="ti ti-chevron-left"></i></button>
+      <span class="month-label" id="stats-month-label"></span>
+      <button class="month-btn" id="stats-next-month"><i class="ti ti-chevron-right"></i></button>
+    </div>
+
+    <div class="stats-kpi-grid">
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-value" id="stats-total-month">—</div>
+        <div class="stats-kpi-label">Créneaux ce mois</div>
+      </div>
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-value stats-kpi-blue" id="stats-fill-rate">—</div>
+        <div class="stats-kpi-label">Taux de remplissage</div>
+      </div>
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-value" id="stats-best-week">—</div>
+        <div class="stats-kpi-label">Meilleure semaine</div>
+      </div>
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-value stats-kpi-gray" id="stats-empty-count">—</div>
+        <div class="stats-kpi-label">Créneaux vides</div>
+      </div>
+    </div>
+
+    <div class="stats-chart-wrap">
+      <canvas id="stats-month-chart"></canvas>
+    </div>
+
+    <div class="stats-chart-wrap">
+      <canvas id="stats-year-chart"></canvas>
+    </div>
+
+  </div>
+
+  <!-- Onglet Paramètres -->
+  <div id="tab-admin-settings" class="tab-content" hidden>
+
+    <div class="settings-section">
+      <h3 class="settings-title">Sécurité</h3>
+      <label class="field-label" for="new-pwd">Nouveau mot de passe</label>
+      <input id="new-pwd" type="password" class="field-input" placeholder="Nouveau mot de passe" />
+      <label class="field-label" for="confirm-pwd">Confirmer</label>
+      <input id="confirm-pwd" type="password" class="field-input" placeholder="Confirmer le mot de passe" />
+      <p id="pwd-error" class="field-error" hidden></p>
+      <button class="btn btn-primary" id="save-pwd-btn">Mettre à jour</button>
+    </div>
+
+    <div class="settings-section">
+      <h3 class="settings-title">Bannière</h3>
+      <label class="field-label" for="banner-text">Message affiché à tous les membres</label>
+      <textarea id="banner-text" class="field-textarea" rows="3"
+        placeholder="Laissez vide pour masquer la bannière"></textarea>
+      <button class="btn btn-primary" id="save-banner-btn">Enregistrer</button>
+    </div>
+
+    <div class="settings-section">
+      <h3 class="settings-title">Créneaux</h3>
+      <label class="field-label" for="places-input">Places par créneau</label>
+      <input id="places-input" type="number" class="field-input field-input-sm" min="1" max="10" />
+      <p class="settings-note">
+        <i class="ti ti-info-circle"></i>
+        Modifie immédiatement tous les créneaux à venir.
+      </p>
+      <button class="btn btn-primary" id="save-places-btn">Enregistrer</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL — FERMER UN CRÉNEAU
+══════════════════════════════════════════════ -->
+<div id="modal-close-slot" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <h3 class="modal-title">Fermer ce créneau</h3>
+    <label class="field-label" for="close-reason">Raison (facultatif)</label>
+    <textarea id="close-reason" class="field-textarea" rows="3"
+      placeholder="Ex : Jour férié, réunion de congrégation…"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-close-cancel">Annuler</button>
+      <button class="btn btn-danger" id="modal-close-confirm">Fermer le créneau</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL — AJOUTER UN MEMBRE
+══════════════════════════════════════════════ -->
+<div id="modal-add-member" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <h3 class="modal-title">Ajouter un membre</h3>
+    <label class="field-label" for="new-member-prenom">Prénom</label>
+    <input id="new-member-prenom" type="text" class="field-input" placeholder="Ex : Marie" />
+    <label class="field-label" for="new-member-nom">Nom</label>
+    <input id="new-member-nom" type="text" class="field-input" placeholder="Ex : Dupont" />
+    <label class="field-label" for="new-member-tel">Téléphone</label>
+    <input id="new-member-tel" type="tel" class="field-input" placeholder="Ex : 06 12 34 56 78" />
+    <p id="add-member-error" class="field-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-member-cancel">Annuler</button>
+      <button class="btn btn-primary" id="modal-member-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL — IMPORTER DES MEMBRES
+══════════════════════════════════════════════ -->
+<div id="modal-import-members" class="modal-overlay" hidden>
+  <div class="modal-box" style="max-width:620px;width:calc(100% - 2rem);">
+    <h3 class="modal-title">Importer des membres</h3>
+
+    <!-- Étape 1 : mapping des colonnes -->
+    <div id="import-mapping-section">
+      <p style="font-size:.83rem;color:var(--text2);margin-bottom:.9rem;">
+        Associez les colonnes de votre fichier aux champs de l'application.
+      </p>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:.5rem .75rem;align-items:center;margin-bottom:1rem;">
+        <label class="field-label" style="margin:0;">Prénom *</label>
+        <select id="map-prenom" class="field-input" style="margin:0;height:2.2rem;"></select>
+        <label class="field-label" style="margin:0;">Nom *</label>
+        <select id="map-nom" class="field-input" style="margin:0;height:2.2rem;"></select>
+        <label class="field-label" style="margin:0;">Téléphone</label>
+        <select id="map-tel" class="field-input" style="margin:0;height:2.2rem;"></select>
+      </div>
+      <button class="btn btn-primary btn-sm" id="import-preview-btn">
+        Prévisualiser
+      </button>
+    </div>
+
+    <!-- Étape 2 : prévisualisation -->
+    <div id="import-preview-section" hidden>
+      <p id="import-preview-info" style="font-size:.83rem;color:var(--text2);margin-bottom:.6rem;"></p>
+      <div style="max-height:270px;overflow-y:auto;border:1px solid var(--border,#e2e8f0);border-radius:.4rem;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead style="position:sticky;top:0;background:var(--bg2,#f8fafc);z-index:1;">
+            <tr>
+              <th style="padding:.4rem .5rem;width:2rem;"></th>
+              <th style="padding:.4rem .5rem;text-align:left;font-weight:600;">Prénom</th>
+              <th style="padding:.4rem .5rem;text-align:left;font-weight:600;">Nom</th>
+              <th style="padding:.4rem .5rem;text-align:left;font-weight:600;">Téléphone</th>
+              <th style="padding:.4rem .5rem;text-align:left;font-weight:600;">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="import-preview-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="import-back-btn" style="margin-top:.65rem;font-size:.8rem;">
+        ← Modifier le mapping
+      </button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-import-cancel">Annuler</button>
+      <button class="btn btn-primary" id="modal-import-confirm" hidden>
+        Importer <span id="import-count">0</span> membres
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════════════ -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- XLSX (classique, chargé avant les modules) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Chart.js (classique, disponible comme global dans les modules) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Firebase (module indépendant — si le CDN est hors-ligne, l'appli continue sans sync) -->
+<script type="module" src="firebase.js"></script>
+<!-- Point d'entrée principal -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>

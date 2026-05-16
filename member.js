@@ -1,0 +1,635 @@
+/* ═══════════════════════════════════════════
+   member.js — Vue membre + modérateur
+══════════════════════════════════════════════ */
+
+import {
+  dateToKey, keyToDate, lastDayOfMonth,
+  getSettings, generateMissingSlots, getSlotsWithRegistrations,
+  getMemberUpcomingRegistrations, getMemberUpcomingCount,
+  addRegistration, deleteRegistration, closeSlot, openSlot,
+  incrementQuota, decrementQuota, getQuotaState,
+  getInitials, fullName, getAvatarColorIndex, getAvatarBgColor,
+} from './data.js';
+import { currentMember } from './auth.js';
+import {
+  isMonthAccessibleForMember, lockedMonthMessage, renderCalendarGrid, refreshDots,
+  weekRangeLabel, buildMemberBadge, buildAdminBadge, buildInscritRow, DAYS_FR,
+} from './calendar.js';
+import { openCloseSlotModal } from './admin.js';
+
+const memberState = {
+  year:         0,
+  month:        0,
+  selectedWeek: null,
+  slotsMap:     {},
+  settings:     {},
+};
+
+const modState = {
+  year:         0,
+  month:        0,
+  selectedWeek: null,
+  slotsMap:     {},
+};
+
+/* ════════════════════════════════════════
+   POINT D'ENTRÉE
+════════════════════════════════════════ */
+
+export function renderMemberScreen() {
+  const member = currentMember;
+  if (!member) return;
+
+  const avatarEl = document.getElementById("member-avatar");
+  const idx      = getAvatarColorIndex(member.id);
+  avatarEl.textContent      = getInitials(fullName(member));
+  avatarEl.style.background = getAvatarBgColor(idx);
+
+  document.getElementById("mod-badge").hidden   = !member.is_moderator;
+  document.getElementById("mod-tab-btn").hidden = !member.is_moderator;
+
+  const today = new Date();
+  memberState.year         = today.getFullYear();
+  memberState.month        = today.getMonth();
+  memberState.selectedWeek = null;
+
+  if (member.is_moderator) {
+    modState.year         = today.getFullYear();
+    modState.month        = today.getMonth();
+    modState.selectedWeek = null;
+  }
+
+  memberState.settings = getSettings();
+  renderMemberBanner();
+  renderQuotaBar();
+  renderMemberCalendar();
+  switchMemberTab("calendar");
+}
+
+/* ════════════════════════════════════════
+   BANNIÈRE
+════════════════════════════════════════ */
+
+function renderMemberBanner() {
+  const settings = memberState.settings;
+  const bannerEl = document.getElementById("member-banner");
+  const textEl   = document.getElementById("member-banner-text");
+
+  if (settings.banner && settings.banner.trim()) {
+    textEl.textContent = settings.banner.trim();
+    bannerEl.hidden    = false;
+  } else {
+    bannerEl.hidden = true;
+  }
+}
+
+/* ════════════════════════════════════════
+   QUOTA
+════════════════════════════════════════ */
+
+function renderQuotaBar() {
+  const member = currentMember;
+  if (!member) return;
+  const state  = getQuotaState(member.id);
+  const dotsEl = document.getElementById("quota-dots");
+  const textEl = document.getElementById("quota-text");
+
+  dotsEl.innerHTML = "";
+  for (let i = 0; i < state.max; i++) {
+    const dot = document.createElement("div");
+    dot.className = "quota-dot " + (i < state.count ? "filled" : "empty");
+    dotsEl.appendChild(dot);
+  }
+
+  if (!state.canSignup) {
+    textEl.textContent = `Disponible ${state.nextResetLabel}`;
+    textEl.style.color = "var(--orange)";
+  } else {
+    const rem = state.max - state.count;
+    textEl.textContent = `${rem} réservation${rem > 1 ? "s" : ""} restante${rem > 1 ? "s" : ""}`;
+    textEl.style.color = "var(--text2)";
+  }
+}
+
+/* ════════════════════════════════════════
+   ONGLETS MEMBRE
+════════════════════════════════════════ */
+
+export function bindMemberTabs() {
+  document.getElementById("member-tabs").addEventListener("click", e => {
+    const btn = e.target.closest(".tab");
+    if (!btn) return;
+    switchMemberTab(btn.dataset.tab);
+  });
+}
+
+function switchMemberTab(tabId) {
+  document.querySelectorAll("#member-tabs .tab").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === tabId);
+  });
+  document.getElementById("tab-calendar").hidden   = (tabId !== "calendar");
+  document.getElementById("tab-my-slots").hidden   = (tabId !== "my-slots");
+  document.getElementById("tab-moderation").hidden = (tabId !== "moderation");
+
+  if (tabId === "my-slots")   renderMySlots();
+  if (tabId === "moderation") renderModCalendar();
+}
+
+/* ════════════════════════════════════════
+   NAVIGATION MOIS — MEMBRE
+════════════════════════════════════════ */
+
+export function bindMemberMonthNav() {
+  document.getElementById("member-prev-month").addEventListener("click", () => shiftMemberMonth(-1));
+  document.getElementById("member-next-month").addEventListener("click", () => shiftMemberMonth(+1));
+}
+
+function shiftMemberMonth(delta) {
+  let { year, month } = memberState;
+  month += delta;
+  if (month < 0)  { month = 11; year--; }
+  if (month > 11) { month = 0;  year++; }
+
+  const today    = new Date();
+  const curYear  = today.getFullYear();
+  const curMonth = today.getMonth();
+
+  if (year < curYear || (year === curYear && month < curMonth)) return;
+
+  const lastDayNum = new Date(curYear, curMonth + 1, 0).getDate();
+  const isLastDay  = today.getDate() === lastDayNum;
+  let maxYear = curYear, maxMonth = isLastDay ? curMonth + 1 : curMonth;
+  if (maxMonth > 11) { maxMonth = 0; maxYear++; }
+  if (year > maxYear || (year === maxYear && month > maxMonth)) return;
+
+  memberState.year = year; memberState.month = month; memberState.selectedWeek = null;
+  renderMemberCalendar();
+}
+
+/* ════════════════════════════════════════
+   CALENDRIER MEMBRE
+════════════════════════════════════════ */
+
+function renderMemberCalendar() {
+  const { year, month } = memberState;
+  const member = currentMember;
+
+  const label = new Date(year, month, 1)
+    .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  document.getElementById("member-month-label").textContent =
+    label.charAt(0).toUpperCase() + label.slice(1);
+
+  const today    = new Date();
+  const curYear  = today.getFullYear();
+  const curMonth = today.getMonth();
+
+  document.getElementById("member-prev-month").disabled = (year === curYear && month === curMonth);
+
+  const lastDayNum = new Date(curYear, curMonth + 1, 0).getDate();
+  const isLastDay  = today.getDate() === lastDayNum;
+  let maxYear = curYear, maxMonth = isLastDay ? curMonth + 1 : curMonth;
+  if (maxMonth > 11) { maxMonth = 0; maxYear++; }
+  let nextYear = year, nextMonth = month + 1;
+  if (nextMonth > 11) { nextMonth = 0; nextYear++; }
+  document.getElementById("member-next-month").disabled =
+    (nextYear > maxYear || (nextYear === maxYear && nextMonth > maxMonth));
+
+  const locked     = !isMonthAccessibleForMember(year, month);
+  const lockedCard = document.getElementById("member-locked-month");
+  const grid       = document.getElementById("member-calendar-grid");
+  const weekDetail = document.getElementById("member-week-detail");
+
+  if (locked) {
+    lockedCard.hidden  = false;
+    grid.style.display = "none";
+    weekDetail.hidden  = true;
+    document.getElementById("member-locked-text").textContent = lockedMonthMessage();
+    return;
+  }
+
+  lockedCard.hidden  = true;
+  grid.style.display = "";
+
+  const firstDate = dateToKey(new Date(year, month, 1));
+  const lastDate  = dateToKey(lastDayOfMonth(year, month));
+  memberState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
+
+  const calBody = document.getElementById("member-cal-body");
+
+  function handleWeekClick(mondayKey) {
+    memberState.selectedWeek = mondayKey;
+    renderCalendarGrid(calBody, year, month, member.id, mondayKey, handleWeekClick, memberState.slotsMap);
+    renderMemberWeekDetail(mondayKey);
+    setTimeout(() => document.getElementById("member-week-detail")
+      .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
+
+  renderCalendarGrid(calBody, year, month, member.id, memberState.selectedWeek, handleWeekClick, memberState.slotsMap);
+  if (!memberState.selectedWeek) weekDetail.hidden = true;
+  else renderMemberWeekDetail(memberState.selectedWeek);
+}
+
+/* ════════════════════════════════════════
+   DÉTAIL SEMAINE — MEMBRE
+════════════════════════════════════════ */
+
+function renderMemberWeekDetail(mondayKey) {
+  const member  = currentMember;
+  const detail  = document.getElementById("member-week-detail");
+  const title   = document.getElementById("member-week-title");
+  const cards   = document.getElementById("member-day-cards");
+
+  detail.hidden = false;
+  title.textContent = weekRangeLabel(mondayKey);
+  cards.innerHTML   = "";
+
+  const slotsMap = memberState.slotsMap;
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
+  const monday   = keyToDate(mondayKey);
+
+  for (let i = 0; i < 5; i++) {
+    const day    = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key    = dateToKey(day);
+    const slot   = slotsMap[key] || { id: null, date: key, inscrits: [], is_closed: false, close_reason: null, places: 2 };
+    const isPast = day < today;
+
+    const card = document.createElement("div");
+    card.className = "day-card";
+
+    const hdrClass  = slot.is_closed ? "closed-header" : isPast ? "past-header" : "";
+    const badge     = buildMemberBadge(slot, member.id);
+    const timeLabel = slot.heure_debut && slot.heure_fin
+      ? `${slot.heure_debut.slice(0,5)} – ${slot.heure_fin.slice(0,5)}` : "07:00 – 09:00";
+    const lieuLabel = slot.lieu || "Gare d'Agen";
+
+    card.innerHTML = `
+      <div class="day-card-header ${hdrClass}">
+        <div>
+          <div class="day-card-name">${DAYS_FR[i]}</div>
+          <div class="day-card-time">${timeLabel} · ${lieuLabel}</div>
+        </div>
+        ${badge}
+      </div>`;
+
+    if (slot.is_closed && slot.close_reason) {
+      const r = document.createElement("div");
+      r.className = "slot-closed-reason";
+      r.innerHTML = `<i class="ti ti-alert-triangle"></i> ${slot.close_reason}`;
+      card.appendChild(r);
+    }
+
+    const body = document.createElement("div");
+    body.className = "day-card-body";
+
+    if (!slot.inscrits || slot.inscrits.length === 0) {
+      if (!isPast && !slot.is_closed) {
+        const pl = document.createElement("div");
+        pl.className = "places-libres";
+        pl.innerHTML = `<i class="ti ti-users"></i> ${slot.places} place${slot.places > 1 ? "s" : ""} disponible${slot.places > 1 ? "s" : ""}`;
+        body.appendChild(pl);
+      } else {
+        const empty = document.createElement("p");
+        empty.style.cssText = "font-size:.82rem;color:var(--text3);padding:.2rem 0;";
+        empty.textContent = "Aucun inscrit";
+        body.appendChild(empty);
+      }
+    } else {
+      slot.inscrits.forEach(m => { body.innerHTML += buildInscritRow(m, m.id === member.id, false, slot.id); });
+      const free = slot.places - slot.inscrits.length;
+      if (free > 0 && !slot.is_closed && !isPast) {
+        const pl = document.createElement("div");
+        pl.className = "places-libres";
+        pl.innerHTML = `<i class="ti ti-users"></i> ${free} place${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}`;
+        body.appendChild(pl);
+      }
+    }
+
+    card.appendChild(body);
+
+    if (!isPast && !slot.is_closed && slot.id) {
+      const actionDiv = document.createElement("div");
+      actionDiv.className = "day-card-action";
+      const isInscrit = slot.inscrits && slot.inscrits.some(m => m.id === member.id);
+      const isFull    = slot.inscrits && slot.inscrits.length >= slot.places;
+
+      if (isInscrit) {
+        actionDiv.innerHTML = `<button class="btn btn-outline-red btn-sm" data-action="desister" data-slot-id="${slot.id}">Se désister</button>`;
+      } else if (!isFull) {
+        actionDiv.innerHTML = `<button class="btn btn-primary btn-sm" data-action="inscrire" data-slot-id="${slot.id}">S'inscrire</button>`;
+      }
+      card.appendChild(actionDiv);
+    }
+
+    cards.appendChild(card);
+  }
+
+  cards.onclick = (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    if (btn.dataset.action === "inscrire") doSignup(btn.dataset.slotId);
+    if (btn.dataset.action === "desister") doWithdraw(btn.dataset.slotId);
+  };
+}
+
+/* ════════════════════════════════════════
+   INSCRIPTION / DÉSISTEMENT
+════════════════════════════════════════ */
+
+function doSignup(slotId) {
+  const member = currentMember;
+  let quotaUsed = false;
+  try {
+    const canSignup = incrementQuota(member.id);
+    if (!canSignup) {
+      const state = getQuotaState(member.id);
+      window.showToast(`Quota atteint — disponible ${state.nextResetLabel}`);
+      renderQuotaBar();
+      return;
+    }
+    quotaUsed = true;
+    addRegistration(slotId, member.id);
+    window.showToast("Inscription confirmée !");
+    _refreshMemberCalendar();
+    renderQuotaBar();
+  } catch (e) {
+    if (quotaUsed) try { decrementQuota(member.id); } catch {}
+    window.showError();
+  }
+}
+
+function doWithdraw(slotId) {
+  const member = currentMember;
+  try {
+    deleteRegistration(slotId, member.id);
+    decrementQuota(member.id);
+    window.showToast("Désistement enregistré.");
+    _refreshMemberCalendar();
+    renderQuotaBar();
+  } catch (e) {
+    window.showError();
+  }
+}
+
+function _refreshMemberCalendar() {
+  if (!currentMember) return;
+  const { year, month } = memberState;
+  const firstDate = dateToKey(new Date(year, month, 1));
+  const lastDate  = dateToKey(lastDayOfMonth(year, month));
+  memberState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
+  refreshDots(document.getElementById("member-cal-body"), year, month, currentMember.id, memberState.slotsMap);
+  if (memberState.selectedWeek) renderMemberWeekDetail(memberState.selectedWeek);
+}
+
+/* ════════════════════════════════════════
+   MES INSCRIPTIONS
+════════════════════════════════════════ */
+
+function renderMySlots() {
+  const member = currentMember;
+  const wrap   = document.getElementById("my-slots-list");
+  wrap.innerHTML = "";
+
+  const upcoming = getMemberUpcomingRegistrations(member.id);
+
+  if (upcoming.length === 0) {
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <i class="ti ti-calendar-off"></i>
+        Aucun créneau à venir —<br>inscrivez-vous depuis le calendrier.
+      </div>`;
+    return;
+  }
+
+  const container = document.createElement("div");
+  container.className = "my-slots-wrap";
+
+  upcoming.forEach(slot => {
+    const d    = keyToDate(slot.date);
+    const card = document.createElement("div");
+    card.className = "my-slot-card";
+    const dayName   = d.toLocaleDateString("fr-FR", { weekday: "long" });
+    const dateStr   = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    const timeLabel = slot.heure_debut && slot.heure_fin
+      ? `${slot.heure_debut.slice(0,5)} – ${slot.heure_fin.slice(0,5)}` : "07:00 – 09:00";
+    const lieuLabel = slot.lieu || "Gare d'Agen";
+
+    card.innerHTML = `
+      <div class="my-slot-info">
+        <div class="my-slot-date">${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${dateStr}</div>
+        <div class="my-slot-meta">${timeLabel} · ${lieuLabel} &nbsp;
+          <span class="badge badge-orange">✓ Inscrit</span>
+        </div>
+      </div>
+      <button class="btn btn-outline-red btn-sm" data-slot-id="${slot.id}">Se désister</button>`;
+    container.appendChild(card);
+  });
+
+  wrap.appendChild(container);
+  container.addEventListener("click", e => {
+    const btn = e.target.closest("[data-slot-id]");
+    if (!btn) return;
+    doWithdraw(btn.dataset.slotId);
+    renderMySlots();
+  });
+}
+
+/* ════════════════════════════════════════
+   MODÉRATION — NAVIGATION MOIS
+════════════════════════════════════════ */
+
+function getModMonthBounds() {
+  const today    = new Date();
+  const curYear  = today.getFullYear();
+  const curMonth = today.getMonth();
+
+  let minYear = curYear, minMonth = curMonth - 2;
+  while (minMonth < 0) { minMonth += 12; minYear--; }
+
+  let maxYear = curYear, maxMonth = curMonth + 2;
+  while (maxMonth > 11) { maxMonth -= 12; maxYear++; }
+
+  return { minYear, minMonth, maxYear, maxMonth };
+}
+
+export function bindModMonthNav() {
+  document.getElementById("mod-prev-month").addEventListener("click", () => shiftModMonth(-1));
+  document.getElementById("mod-next-month").addEventListener("click", () => shiftModMonth(+1));
+}
+
+function shiftModMonth(delta) {
+  let { year, month } = modState;
+  month += delta;
+  if (month < 0)  { month = 11; year--; }
+  if (month > 11) { month = 0;  year++; }
+
+  const { minYear, minMonth, maxYear, maxMonth } = getModMonthBounds();
+  if (year < minYear || (year === minYear && month < minMonth)) return;
+  if (year > maxYear || (year === maxYear && month > maxMonth)) return;
+
+  modState.year = year; modState.month = month; modState.selectedWeek = null;
+  try { generateMissingSlots(); } catch {}
+  renderModCalendar();
+}
+
+/* ════════════════════════════════════════
+   MODÉRATION — CALENDRIER
+════════════════════════════════════════ */
+
+function renderModCalendar() {
+  const { year, month } = modState;
+
+  const label = new Date(year, month, 1)
+    .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  document.getElementById("mod-month-label").textContent =
+    label.charAt(0).toUpperCase() + label.slice(1);
+
+  const { minYear, minMonth, maxYear, maxMonth } = getModMonthBounds();
+  document.getElementById("mod-prev-month").disabled =
+    (year < minYear || (year === minYear && month <= minMonth));
+  document.getElementById("mod-next-month").disabled =
+    (year > maxYear || (year === maxYear && month >= maxMonth));
+
+  const firstDate = dateToKey(new Date(year, month, 1));
+  const lastDate  = dateToKey(lastDayOfMonth(year, month));
+  modState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
+
+  const calBody = document.getElementById("mod-cal-body");
+
+  function handleWeekClick(mondayKey) {
+    modState.selectedWeek = mondayKey;
+    renderCalendarGrid(calBody, year, month, null, mondayKey, handleWeekClick, modState.slotsMap);
+    renderModWeekDetail(mondayKey);
+    setTimeout(() => document.getElementById("mod-week-detail")
+      .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
+
+  renderCalendarGrid(calBody, year, month, null, modState.selectedWeek, handleWeekClick, modState.slotsMap);
+  if (!modState.selectedWeek) document.getElementById("mod-week-detail").hidden = true;
+  else renderModWeekDetail(modState.selectedWeek);
+}
+
+/* ════════════════════════════════════════
+   MODÉRATION — DÉTAIL SEMAINE
+════════════════════════════════════════ */
+
+function renderModWeekDetail(mondayKey) {
+  const detail = document.getElementById("mod-week-detail");
+  const title  = document.getElementById("mod-week-title");
+  const cards  = document.getElementById("mod-day-cards");
+
+  detail.hidden = false;
+  title.textContent = weekRangeLabel(mondayKey);
+  cards.innerHTML   = "";
+
+  const slotsMap = modState.slotsMap;
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
+  const monday   = keyToDate(mondayKey);
+
+  for (let i = 0; i < 5; i++) {
+    const day  = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key  = dateToKey(day);
+    const slot = slotsMap[key] || { id: null, date: key, inscrits: [], is_closed: false, close_reason: null, places: 2 };
+    const isPast = day < today;
+
+    const card = document.createElement("div");
+    card.className = "day-card";
+
+    const hdrClass  = slot.is_closed ? "closed-header" : isPast ? "past-header" : "";
+    const badge     = buildAdminBadge(slot);
+    const timeLabel = slot.heure_debut && slot.heure_fin
+      ? `${slot.heure_debut.slice(0,5)} – ${slot.heure_fin.slice(0,5)}` : "07:00 – 09:00";
+    const lieuLabel = slot.lieu || "Gare d'Agen";
+
+    card.innerHTML = `
+      <div class="day-card-header ${hdrClass}">
+        <div>
+          <div class="day-card-name">${DAYS_FR[i]}</div>
+          <div class="day-card-time">${timeLabel} · ${lieuLabel}</div>
+        </div>
+        ${badge}
+      </div>`;
+
+    if (slot.is_closed && slot.close_reason) {
+      const r = document.createElement("div");
+      r.className = "slot-closed-reason";
+      r.innerHTML = `<i class="ti ti-alert-triangle"></i> ${slot.close_reason}`;
+      card.appendChild(r);
+    }
+
+    const body = document.createElement("div");
+    body.className = "day-card-body";
+
+    if (!slot.inscrits || slot.inscrits.length === 0) {
+      const empty = document.createElement("p");
+      empty.style.cssText = "font-size:.82rem;color:var(--text3);padding:.2rem 0;";
+      empty.textContent = "Aucun inscrit";
+      body.appendChild(empty);
+    } else {
+      slot.inscrits.forEach(m => { body.innerHTML += buildInscritRow(m, false, true, slot.id); });
+    }
+
+    card.appendChild(body);
+
+    if (!isPast && slot.id) {
+      const actionDiv = document.createElement("div");
+      actionDiv.className = "day-card-action";
+      if (slot.is_closed) {
+        actionDiv.innerHTML = `
+          <button class="btn btn-outline-green btn-sm" data-action="reopen" data-slot-id="${slot.id}">Réouvrir</button>`;
+      } else {
+        actionDiv.innerHTML = `
+          <button class="btn btn-outline-red btn-sm" data-action="close" data-slot-id="${slot.id}">Fermer ce créneau</button>`;
+      }
+      card.appendChild(actionDiv);
+    }
+
+    cards.appendChild(card);
+  }
+
+  cards.onclick = (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action   = btn.dataset.action;
+    const slotId   = btn.dataset.slotId;
+    const memberId = btn.dataset.memberId;
+
+    if (action === "close") {
+      openCloseSlotModal((reason) => {
+        closeSlot(slotId, reason);
+        window.showToast("Créneau fermé.");
+        _refreshModCalendar();
+      });
+    }
+    if (action === "reopen") modReopenSlot(slotId);
+    if (action === "remove") modRemoveInscrit(slotId, memberId);
+  };
+}
+
+/* ════════════════════════════════════════
+   MODÉRATION — ACTIONS
+════════════════════════════════════════ */
+
+function modReopenSlot(slotId) {
+  try {
+    openSlot(slotId);
+    window.showToast("Créneau réouvert.");
+    _refreshModCalendar();
+  } catch (e) { window.showError(); }
+}
+
+function modRemoveInscrit(slotId, memberId) {
+  try {
+    deleteRegistration(slotId, memberId);
+    window.showToast("Inscrit retiré.");
+    _refreshModCalendar();
+  } catch (e) { window.showError(); }
+}
+
+function _refreshModCalendar() {
+  const { year, month } = modState;
+  const firstDate = dateToKey(new Date(year, month, 1));
+  const lastDate  = dateToKey(lastDayOfMonth(year, month));
+  modState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
+  refreshDots(document.getElementById("mod-cal-body"), year, month, null, modState.slotsMap);
+  if (modState.selectedWeek) renderModWeekDetail(modState.selectedWeek);
+}
