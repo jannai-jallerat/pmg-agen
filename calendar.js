@@ -31,10 +31,11 @@ export function isMonthAccessibleForMember(year, month) {
   return false;
 }
 
-export function lockedMonthMessage() {
-  const today   = new Date();
-  const lastDay = lastDayOfMonth(today.getFullYear(), today.getMonth());
-  return "Disponible le " + formatDateShort(lastDay);
+export function lockedMonthMessage(targetYear, targetMonth) {
+  let prevYear = targetYear, prevMonth = targetMonth - 1;
+  if (prevMonth < 0) { prevMonth = 11; prevYear--; }
+  const lastDay = lastDayOfMonth(prevYear, prevMonth);
+  return "Disponible le " + lastDay.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
 /* ── Dots calendrier (slotsMap passé en paramètre) ── */

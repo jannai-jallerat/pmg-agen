@@ -112,17 +112,18 @@
       <button class="month-btn" id="member-next-month"><i class="ti ti-chevron-right"></i></button>
     </div>
 
-    <div id="member-locked-month" class="locked-month-card" hidden>
-      <i class="ti ti-lock"></i>
-      <p id="member-locked-text"></p>
-    </div>
-
-    <div id="member-calendar-grid" class="calendar-grid">
-      <div class="cal-header">
-        <span>Lun</span><span>Mar</span><span>Mer</span>
-        <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+    <div class="cal-outer">
+      <div id="member-calendar-grid" class="calendar-grid">
+        <div class="cal-header">
+          <span>Lun</span><span>Mar</span><span>Mer</span>
+          <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+        </div>
+        <div id="member-cal-body" class="cal-body"></div>
       </div>
-      <div id="member-cal-body" class="cal-body"></div>
+      <div id="member-cal-overlay" class="cal-lock-overlay" hidden>
+        <span class="cal-lock-icon">🔒</span>
+        <p id="member-locked-text" class="cal-lock-text"></p>
+      </div>
     </div>
 
     <div id="member-week-detail" class="week-detail" hidden>

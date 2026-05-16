@@ -304,26 +304,43 @@ a { color: inherit; }
 /* ═══════════════════════════════════════════
    LOCKED MONTH CARD
 ══════════════════════════════════════════════ */
-.locked-month-card {
-  margin: 1.25rem;
-  background: #fff;
-  border: 1px solid var(--gray2);
-  border-radius: var(--radius);
-  padding: 2rem 1.5rem;
-  text-align: center;
-  color: var(--text3);
+.cal-outer {
+  position: relative;
 }
-.locked-month-card[hidden] { display: none !important; }
 
-.locked-month-card .ti {
-  font-size: 2rem;
-  color: var(--gray3);
-  display: block;
-  margin-bottom: .65rem;
+.cal-grid-locked {
+  opacity: 0.4;
+  filter: grayscale(1);
+  pointer-events: none;
+  user-select: none;
 }
-.locked-month-card p {
-  font-size: .9rem;
-  line-height: 1.6;
+
+.cal-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius);
+  z-index: 10;
+  gap: .5rem;
+  cursor: default;
+}
+.cal-lock-overlay[hidden] { display: none !important; }
+
+.cal-lock-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.cal-lock-text {
+  font-size: 13px;
+  color: #3a3a4a;
+  text-align: center;
+  padding: 0 1.25rem;
+  font-weight: 500;
 }
 
 /* ═══════════════════════════════════════════

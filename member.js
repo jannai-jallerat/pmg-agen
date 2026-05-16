@@ -156,9 +156,7 @@ function shiftMemberMonth(delta) {
 
   if (year < curYear || (year === curYear && month < curMonth)) return;
 
-  const lastDayNum = new Date(curYear, curMonth + 1, 0).getDate();
-  const isLastDay  = today.getDate() === lastDayNum;
-  let maxYear = curYear, maxMonth = isLastDay ? curMonth + 1 : curMonth;
+  let maxYear = curYear, maxMonth = curMonth + 1;
   if (maxMonth > 11) { maxMonth = 0; maxYear++; }
   if (year > maxYear || (year === maxYear && month > maxMonth)) return;
 
@@ -185,9 +183,7 @@ function renderMemberCalendar() {
 
   document.getElementById("member-prev-month").disabled = (year === curYear && month === curMonth);
 
-  const lastDayNum = new Date(curYear, curMonth + 1, 0).getDate();
-  const isLastDay  = today.getDate() === lastDayNum;
-  let maxYear = curYear, maxMonth = isLastDay ? curMonth + 1 : curMonth;
+  let maxYear = curYear, maxMonth = curMonth + 1;
   if (maxMonth > 11) { maxMonth = 0; maxYear++; }
   let nextYear = year, nextMonth = month + 1;
   if (nextMonth > 11) { nextMonth = 0; nextYear++; }
@@ -195,20 +191,16 @@ function renderMemberCalendar() {
     (nextYear > maxYear || (nextYear === maxYear && nextMonth > maxMonth));
 
   const locked     = !isMonthAccessibleForMember(year, month);
-  const lockedCard = document.getElementById("member-locked-month");
   const grid       = document.getElementById("member-calendar-grid");
+  const overlay    = document.getElementById("member-cal-overlay");
   const weekDetail = document.getElementById("member-week-detail");
 
+  grid.classList.toggle("cal-grid-locked", locked);
+  overlay.hidden = !locked;
   if (locked) {
-    lockedCard.hidden  = false;
-    grid.style.display = "none";
-    weekDetail.hidden  = true;
-    document.getElementById("member-locked-text").textContent = lockedMonthMessage();
-    return;
+    document.getElementById("member-locked-text").textContent = lockedMonthMessage(year, month);
+    weekDetail.hidden = true;
   }
-
-  lockedCard.hidden  = true;
-  grid.style.display = "";
 
   const firstDate = dateToKey(new Date(year, month, 1));
   const lastDate  = dateToKey(lastDayOfMonth(year, month));
@@ -224,8 +216,8 @@ function renderMemberCalendar() {
       .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
-  renderCalendarGrid(calBody, year, month, member.id, memberState.selectedWeek, handleWeekClick, memberState.slotsMap);
-  if (!memberState.selectedWeek) weekDetail.hidden = true;
+  renderCalendarGrid(calBody, year, month, member.id, locked ? null : memberState.selectedWeek, handleWeekClick, memberState.slotsMap);
+  if (!memberState.selectedWeek || locked) weekDetail.hidden = true;
   else renderMemberWeekDetail(memberState.selectedWeek);
 }
 
