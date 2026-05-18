@@ -547,6 +547,30 @@ a { color: inherit; }
   margin-bottom: .75rem;
 }
 
+.week-sync-bar {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .75rem;
+  color: var(--text3);
+  padding: 0 0 .65rem;
+}
+.week-sync-bar[hidden] { display: none !important; }
+
+.week-sync-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--blue);
+  border-top-color: transparent;
+  animation: week-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes week-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Day cards */
 .day-card {
   background: #fff;

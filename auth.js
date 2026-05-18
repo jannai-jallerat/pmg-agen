@@ -126,8 +126,13 @@ export function bindLoginScreen() {
     try {
       if (token && window.fbFunctions?.fbVerifyToken) {
         window.showSpinner?.();
-        const member = await window.fbFunctions.fbVerifyToken(token);
-        window.hideSpinner?.();
+        const timeout8s = new Promise((_, rej) =>
+          setTimeout(() => rej(new Error("TIMEOUT")), 8000)
+        );
+        const member = await Promise.race([
+          window.fbFunctions.fbVerifyToken(token),
+          timeout8s,
+        ]);
         if (member) {
           currentMember = member;
           isAdmin = false;
@@ -146,11 +151,21 @@ export function bindLoginScreen() {
       document.getElementById("pin-screen-name").textContent = `${prenom} ${nom}`;
       _resetPinPad();
       window.showScreen("screen-pin");
-    } catch {
-      window.hideSpinner?.();
-      errEl.textContent = "Erreur de connexion. Vérifiez votre connexion internet.";
-      errEl.hidden = false;
+    } catch (e) {
+      if (e.message === "TIMEOUT") {
+        // Token non vérifiable (réseau lent) → PIN screen sans token
+        localStorage.removeItem(TOKEN_KEY);
+        _pendingPrenom = prenom;
+        _pendingNom    = nom;
+        document.getElementById("pin-screen-name").textContent = `${prenom} ${nom}`;
+        _resetPinPad();
+        window.showScreen("screen-pin");
+      } else {
+        errEl.textContent = "Erreur de connexion. Vérifiez votre connexion internet.";
+        errEl.hidden = false;
+      }
     } finally {
+      window.hideSpinner?.();
       btn.disabled = false;
     }
   }
@@ -280,16 +295,25 @@ export function bindPinScreen() {
     errEl.hidden = true;
     window.showSpinner?.();
     try {
-      const member = await window.fbFunctions.fbLoginWithPIN(_pendingPrenom, _pendingNom, pin);
+      const timeout8s = new Promise((_, rej) =>
+        setTimeout(() => rej(new Error("TIMEOUT")), 8000)
+      );
+      const member = await Promise.race([
+        window.fbFunctions.fbLoginWithPIN(_pendingPrenom, _pendingNom, pin),
+        timeout8s,
+      ]);
       currentMember = member;
       isAdmin = false;
       _saveLastUser(member.prenom, member.nom);
       _resetPinPad();
       window.renderMemberScreen();
       window.showScreen("screen-member");
-    } catch {
+    } catch (e) {
       _pinDigits = [];
       _updatePinDots();
+      errEl.textContent = e.message === "TIMEOUT"
+        ? "Connexion lente. Vérifiez votre réseau et réessayez."
+        : "PIN incorrect. Réessayez.";
       errEl.hidden = false;
     } finally {
       window.hideSpinner?.();
