@@ -134,6 +134,9 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js')
       .catch(err => console.warn('Service Worker:', err));
   });
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'SW_UPDATED') window.location.reload();
+  });
 }
 
 /* ── DOMContentLoaded — initialisation synchrone ── */

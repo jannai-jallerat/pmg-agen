@@ -4,7 +4,7 @@
    cache-at-runtime pour le CDN Tabler.
 ══════════════════════════════════════════════ */
 
-const CACHE_NAME  = 'pmg-v7';
+const CACHE_NAME  = 'pmg-v8';
 const TABLER_URL  = 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css';
 
 const PRECACHE_URLS = [
@@ -41,7 +41,7 @@ self.addEventListener('install', event => {
   );
 });
 
-/* ── Activate : supprime les anciens caches ── */
+/* ── Activate : supprime les anciens caches + recharge les clients ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -49,6 +49,8 @@ self.addEventListener('activate', event => {
         keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' })))
   );
 });
 
