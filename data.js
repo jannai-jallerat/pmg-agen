@@ -20,6 +20,13 @@ export function genId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
+function _genInviteCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "PMG-";
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 /* ── Helpers localStorage ── */
 
 export function _load(key, def) {
@@ -36,7 +43,23 @@ export function _save(key, val) {
 /* ── Initialisation des données de démonstration ── */
 
 export function initDemoData() {
-  if (!localStorage.getItem("pmg_members"))       _save("pmg_members",       DEFAULT_MEMBERS.map(m => ({ ...m, id: genId() })));
+  if (!localStorage.getItem("pmg_members")) {
+    _save("pmg_members", DEFAULT_MEMBERS.map(m => ({
+      ...m, id: genId(),
+      invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
+    })));
+  } else {
+    /* Migration : ajouter les champs auth aux membres existants */
+    const members = _load("pmg_members", []);
+    let changed = false;
+    members.forEach(m => {
+      if (!m.invite_code)            { m.invite_code = _genInviteCode(); changed = true; }
+      if (m.invite_used === undefined){ m.invite_used = false;           changed = true; }
+      if (m.pin_hash    === undefined){ m.pin_hash    = null;            changed = true; }
+      if (!m.tokens)                  { m.tokens      = [];              changed = true; }
+    });
+    if (changed) _save("pmg_members", members);
+  }
   if (!localStorage.getItem("pmg_settings"))      _save("pmg_settings",      DEFAULT_SETTINGS);
   if (!localStorage.getItem("pmg_slots"))         _save("pmg_slots",         []);
   if (!localStorage.getItem("pmg_registrations")) _save("pmg_registrations", []);
@@ -133,11 +156,22 @@ export function getMemberByName(prenom, nom) {
 
 export function addMember({ prenom, nom, tel }) {
   const members = _load("pmg_members", []);
-  const member  = { id: genId(), prenom, nom, tel: tel || "", is_moderator: false };
+  const member  = {
+    id: genId(), prenom, nom, tel: tel || "", is_moderator: false,
+    invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
+  };
   members.push(member);
   _save("pmg_members", members);
   window.fbFunctions?.fbAddMember(member);
   return member;
+}
+
+export function updateMemberLocalAuth(id, fields) {
+  const members = _load("pmg_members", []);
+  const idx     = members.findIndex(m => m.id === id);
+  if (idx < 0) return;
+  members[idx] = { ...members[idx], ...fields };
+  _save("pmg_members", members);
 }
 
 export function deleteMember(id) {

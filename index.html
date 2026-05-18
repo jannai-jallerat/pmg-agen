@@ -38,12 +38,75 @@
     <p id="login-prefill-hint" class="login-prefill-hint" hidden>Pas vous ? Effacez et entrez votre nom</p>
     <p id="login-error" class="field-error" hidden></p>
     <button id="login-btn" class="btn btn-primary btn-full">Se connecter</button>
+    <button id="first-login-link" class="btn btn-ghost btn-full" style="font-size:.84rem;">Première connexion →</button>
     <button id="admin-access-btn" class="btn btn-ghost btn-full" style="font-size:.82rem;color:var(--text3);border-color:transparent;">Accès responsable</button>
   </div>
 
   <p class="auth-hint">
-    Connectez-vous avec votre prénom et votre nom.
+    Entrez votre prénom et votre nom, puis votre code PIN.<br>
+    Première fois ? Utilisez votre code d'invitation.
   </p>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN — PREMIÈRE CONNEXION
+══════════════════════════════════════════════ -->
+<div id="screen-first-login" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg"><span class="logo-pm">PMG</span></div>
+  </div>
+  <p class="auth-appname">Première connexion</p>
+  <p class="auth-subtitle">Activez votre compte avec votre code d'invitation</p>
+
+  <div class="auth-card">
+    <label class="field-label" for="first-prenom">Prénom</label>
+    <input id="first-prenom" type="text" class="field-input" placeholder="Ex : Sophie" autocomplete="given-name" />
+    <label class="field-label" for="first-nom">Nom</label>
+    <input id="first-nom" type="text" class="field-input" placeholder="Ex : Martin" autocomplete="family-name" />
+    <label class="field-label" for="first-invite">Code d'invitation</label>
+    <input id="first-invite" type="text" class="field-input field-mono" placeholder="PMG-XXXX" maxlength="8" autocomplete="off" />
+    <label class="field-label" for="first-pin">Choisir un PIN (4 chiffres)</label>
+    <input id="first-pin" type="password" inputmode="numeric" class="field-input" placeholder="••••" maxlength="4" autocomplete="new-password" />
+    <label class="field-label" for="first-pin-confirm">Confirmer le PIN</label>
+    <input id="first-pin-confirm" type="password" inputmode="numeric" class="field-input" placeholder="••••" maxlength="4" autocomplete="new-password" />
+    <p id="first-error" class="field-error" hidden></p>
+    <button id="first-login-btn" class="btn btn-primary btn-full">Activer mon compte</button>
+    <button id="first-back-btn" class="btn btn-ghost btn-full">← Retour</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN — SAISIE PIN
+══════════════════════════════════════════════ -->
+<div id="screen-pin" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg"><span class="logo-pm">PMG</span></div>
+  </div>
+  <p class="auth-appname">Code PIN</p>
+  <p class="auth-subtitle" id="pin-screen-name"></p>
+
+  <div class="pin-dots">
+    <div class="pin-dot" id="pin-dot-0"></div>
+    <div class="pin-dot" id="pin-dot-1"></div>
+    <div class="pin-dot" id="pin-dot-2"></div>
+    <div class="pin-dot" id="pin-dot-3"></div>
+  </div>
+  <p id="pin-error" class="field-error" style="text-align:center;margin-bottom:.5rem;" hidden>PIN incorrect. Réessayez.</p>
+
+  <div class="pin-pad" id="pin-pad">
+    <button class="pin-key" data-digit="1">1</button>
+    <button class="pin-key" data-digit="2">2</button>
+    <button class="pin-key" data-digit="3">3</button>
+    <button class="pin-key" data-digit="4">4</button>
+    <button class="pin-key" data-digit="5">5</button>
+    <button class="pin-key" data-digit="6">6</button>
+    <button class="pin-key" data-digit="7">7</button>
+    <button class="pin-key" data-digit="8">8</button>
+    <button class="pin-key" data-digit="9">9</button>
+    <button class="pin-key pin-key-nav" id="pin-back-btn">← Retour</button>
+    <button class="pin-key" data-digit="0">0</button>
+    <button class="pin-key pin-key-del" id="pin-del-btn"><i class="ti ti-backspace"></i></button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -394,6 +457,31 @@
         Importer <span id="import-count">0</span> membres
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL — CODE INVITATION
+══════════════════════════════════════════════ -->
+<div id="modal-invite-code" class="modal-overlay" hidden>
+  <div class="modal">
+    <h3 class="modal-title" style="display:flex;align-items:center;gap:.4rem;">
+      <i class="ti ti-check-circle" style="color:var(--green);font-size:1.1em;"></i>
+      Membre créé
+    </h3>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:.75rem;line-height:1.55;">
+      Envoyez ce code au membre pour sa première connexion.
+    </p>
+    <div class="invite-code-display">
+      <span id="modal-invite-code-value" class="invite-code-text"></span>
+      <button id="modal-copy-invite" class="btn btn-sm btn-ghost">
+        <i class="ti ti-copy"></i> Copier
+      </button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text3);text-align:center;margin-top:.25rem;">
+      Ce code est à usage unique et expire à la première connexion.
+    </p>
+    <button id="modal-close-invite" class="btn btn-primary btn-full" style="margin-top:1rem;">Fermer</button>
   </div>
 </div>
 

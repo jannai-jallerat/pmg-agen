@@ -126,6 +126,89 @@ a { color: inherit; }
 }
 .auth-hint strong { color: var(--text2); }
 
+.field-mono { font-family: monospace; letter-spacing: .08em; font-size: 1rem; }
+
+/* ── PIN pad ── */
+.pin-dots {
+  display: flex;
+  gap: 1.1rem;
+  justify-content: center;
+  margin: 1.25rem 0 .75rem;
+}
+.pin-dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--gray3);
+  background: transparent;
+  transition: background .12s, border-color .12s;
+}
+.pin-dot.filled { background: var(--blue); border-color: var(--blue); }
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .55rem;
+  max-width: 260px;
+  width: 100%;
+  margin: .25rem auto 0;
+  padding: 0 1rem;
+}
+.pin-key {
+  height: 60px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--gray2);
+  transition: background .08s, transform .06s;
+  user-select: none;
+}
+.pin-key:active { background: var(--gray); transform: scale(.95); }
+.pin-key-nav, .pin-key-del {
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--text2);
+}
+
+/* ── Invite code display ── */
+.invite-code-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  background: var(--blue-lt);
+  border-radius: var(--radius);
+  padding: .75rem 1rem;
+  margin: .5rem 0;
+}
+.invite-code-text {
+  font-family: monospace;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: var(--blue);
+}
+
+/* ── Member invite code inline ── */
+.member-invite-row {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  margin-top: .25rem;
+}
+.member-invite-code {
+  font-family: monospace;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--blue-lt);
+  padding: .1rem .4rem;
+  border-radius: 4px;
+  letter-spacing: .06em;
+}
+
 /* ═══════════════════════════════════════════
    TOPBAR
 ══════════════════════════════════════════════ */

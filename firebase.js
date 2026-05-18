@@ -7,7 +7,7 @@
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs,
-         deleteDoc, setDoc, writeBatch, query, where, orderBy, onSnapshot }
+         deleteDoc, setDoc, updateDoc, writeBatch, query, where, orderBy, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,6 +22,24 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+
+/* ── Helpers auth (pas de Firebase) ── */
+
+function generateInviteCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "PMG-";
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function hashPIN(pin) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function generateToken() {
+  return crypto.randomUUID() + "-" + Date.now().toString(36);
+}
 
 /* ── Membres (doc ID = UUID local) ── */
 
@@ -39,8 +57,91 @@ async function fbAddMember(member) {
       nom:          member.nom,
       tel:          member.tel || "",
       is_moderator: !!member.is_moderator,
+      invite_code:  member.invite_code  || generateInviteCode(),
+      invite_used:  !!member.invite_used,
+      pin_hash:     member.pin_hash     || null,
+      tokens:       member.tokens       || [],
     });
   } catch {}
+}
+
+/* ── Auth membre ── */
+
+async function fbVerifyToken(token) {
+  try {
+    const snap = await getDocs(collection(db, "members"));
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.tokens && data.tokens.includes(token)) return { id: d.id, ...data };
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function fbFirstLogin(prenom, nom, inviteCode, pin) {
+  const snap = await getDocs(collection(db, "members"));
+  const memberDoc = snap.docs.find(d => {
+    const data = d.data();
+    return data.prenom.toLowerCase() === prenom.toLowerCase() &&
+           data.nom.toLowerCase()    === nom.toLowerCase()    &&
+           data.invite_code          === inviteCode.toUpperCase() &&
+           data.invite_used          === false;
+  });
+  if (!memberDoc) throw new Error("INVALID_INVITE");
+
+  const pinHash = await hashPIN(pin);
+  const token   = generateToken();
+  await updateDoc(doc(db, "members", memberDoc.id), {
+    invite_used: true, pin_hash: pinHash, tokens: [token],
+  });
+  localStorage.setItem("pmg_token", token);
+  return { id: memberDoc.id, ...memberDoc.data(), invite_used: true };
+}
+
+async function fbLoginWithPIN(prenom, nom, pin) {
+  const pinHash = await hashPIN(pin);
+  const snap = await getDocs(collection(db, "members"));
+  const memberDoc = snap.docs.find(d => {
+    const data = d.data();
+    return data.prenom.toLowerCase() === prenom.toLowerCase() &&
+           data.nom.toLowerCase()    === nom.toLowerCase()    &&
+           data.pin_hash             === pinHash              &&
+           data.invite_used          === true;
+  });
+  if (!memberDoc) throw new Error("INVALID_PIN");
+
+  const token  = generateToken();
+  const tokens = [...(memberDoc.data().tokens || []), token].slice(-5);
+  await updateDoc(doc(db, "members", memberDoc.id), { tokens });
+  localStorage.setItem("pmg_token", token);
+  return { id: memberDoc.id, ...memberDoc.data() };
+}
+
+async function fbRevokeToken(token) {
+  try {
+    const snap = await getDocs(collection(db, "members"));
+    for (const d of snap.docs) {
+      const tokens = d.data().tokens || [];
+      if (tokens.includes(token)) {
+        await updateDoc(doc(db, "members", d.id), { tokens: tokens.filter(t => t !== token) });
+        break;
+      }
+    }
+  } catch {}
+}
+
+async function fbResetInvite(memberId) {
+  try {
+    const newCode = generateInviteCode();
+    await updateDoc(doc(db, "members", memberId), {
+      invite_code: newCode, invite_used: false, pin_hash: null, tokens: [],
+    });
+    return newCode;
+  } catch { return null; }
+}
+
+async function fbRevokeAllTokens(memberId) {
+  try { await updateDoc(doc(db, "members", memberId), { tokens: [] }); } catch {}
 }
 
 async function fbDeleteMember(id) {
@@ -218,8 +319,14 @@ async function fbSeedIfEmpty(defaultMembers, defaultSettings) {
         setDoc(doc(db, "settings", k), { value: String(v) })),
       ...defaultMembers.map(m =>
         setDoc(doc(db, "members", m.id), {
-          prenom: m.prenom, nom: m.nom,
-          tel: m.tel || "", is_moderator: false,
+          prenom:       m.prenom,
+          nom:          m.nom,
+          tel:          m.tel || "",
+          is_moderator: !!m.is_moderator,
+          invite_code:  m.invite_code  || generateInviteCode(),
+          invite_used:  !!m.invite_used,
+          pin_hash:     m.pin_hash     || null,
+          tokens:       m.tokens       || [],
         })),
     ]);
   } catch {}
@@ -233,6 +340,8 @@ window.fbFunctions = {
   fbGetSlots, fbGenerateMissingSlots, fbCloseSlot, fbOpenSlot, fbUpdateFutureSlotsPlaces,
   fbGetRegistrations, fbAddRegistration, fbDeleteRegistration,
   fbListenDay, fbListenWeek,
+  fbVerifyToken, fbFirstLogin, fbLoginWithPIN,
+  fbRevokeToken, fbResetInvite, fbRevokeAllTokens,
   fbGetQuota, fbIncrementQuota, fbDecrementQuota,
   fbSeedIfEmpty,
 };

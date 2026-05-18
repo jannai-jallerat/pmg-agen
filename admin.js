@@ -9,7 +9,7 @@ import {
   getMembers, getMemberUpcomingCount,
   addMember, deleteMember, setModerator, importMembers,
   updateSetting, updateFutureSlotsPlaces, closeSlot, openSlot, deleteRegistration,
-  patchSlotFromFirebase, _load,
+  patchSlotFromFirebase, updateMemberLocalAuth, _load,
 } from './data.js';
 import {
   renderCalendarGrid, refreshDots, weekRangeLabel,
@@ -401,25 +401,46 @@ function renderAdminMembers() {
 
     const toggleLabel = member.is_moderator ? "Retirer modération" : "Rendre modérateur";
     const toggleClass = member.is_moderator ? "btn-outline-red" : "btn-ghost";
+    const inviteUsed  = !!member.invite_used;
+    const inviteCode  = member.invite_code || "";
+
+    const authBadge = inviteUsed
+      ? `<span class="badge badge-green" style="font-size:.65rem;">Activé</span>`
+      : `<span class="badge badge-orange" style="font-size:.65rem;">En attente</span>`;
+
+    const inviteRow = !inviteUsed && inviteCode ? `
+      <div class="member-invite-row">
+        <span class="member-invite-code">${inviteCode}</span>
+        <button class="btn btn-sm btn-ghost" data-copy-code="${inviteCode}" style="padding:.1rem .35rem;font-size:.72rem;">
+          <i class="ti ti-copy"></i>
+        </button>
+      </div>` : "";
 
     const card = document.createElement("div");
     card.className = "member-card";
     card.innerHTML = `
       <div class="member-avatar-lg av-${idx}" style="background:${getAvatarBgColor(idx)}">${init}</div>
       <div class="member-info">
-        <div class="member-name">${fullName(member)}${modBadge}</div>
+        <div class="member-name">${fullName(member)}${modBadge} ${authBadge}</div>
         <div class="member-meta">
           ${member.tel
             ? `<a href="tel:${member.tel.replace(/\s/g,"")}" class="inscrit-tel">${member.tel}</a>`
             : ""}
           <span class="member-slots-count">${count} créneau${count !== 1 ? "x" : ""} à venir</span>
         </div>
+        ${inviteRow}
       </div>
       <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end;">
         <button class="btn btn-sm ${toggleClass}"
                 data-mod-toggle="${member.id}"
                 data-mod-value="${!member.is_moderator}"
                 style="font-size:.75rem;white-space:nowrap;">${toggleLabel}</button>
+        <button class="btn btn-sm btn-ghost"
+                data-reset-invite="${member.id}"
+                style="font-size:.72rem;white-space:nowrap;">Régénérer code</button>
+        <button class="btn btn-sm btn-ghost"
+                data-revoke-tokens="${member.id}"
+                style="font-size:.72rem;white-space:nowrap;color:var(--orange);">Déconnecter appareils</button>
         <button class="btn-delete" data-member-id="${member.id}" title="Supprimer ${fullName(member)}">
           <i class="ti ti-trash"></i>
         </button>
@@ -430,6 +451,41 @@ function renderAdminMembers() {
   listEl.appendChild(wrap);
 
   wrap.addEventListener("click", e => {
+    const copyBtn = e.target.closest("[data-copy-code]");
+    if (copyBtn) {
+      navigator.clipboard?.writeText(copyBtn.dataset.copyCode)
+        .then(() => window.showToast("Code copié !"))
+        .catch(() => window.showToast("Code : " + copyBtn.dataset.copyCode));
+      return;
+    }
+
+    const resetBtn = e.target.closest("[data-reset-invite]");
+    if (resetBtn) {
+      const memberId = resetBtn.dataset.resetInvite;
+      const member   = members.find(m => m.id === memberId);
+      if (!confirm(`Régénérer le code d'invitation de ${fullName(member)} ?\nCela déconnectera le membre de tous ses appareils.`)) return;
+      window.fbFunctions?.fbResetInvite(memberId).then(newCode => {
+        if (newCode) {
+          updateMemberLocalAuth(memberId, { invite_code: newCode, invite_used: false, pin_hash: null, tokens: [] });
+          window.showToast("Nouveau code : " + newCode);
+          renderAdminMembers();
+        } else {
+          window.showError();
+        }
+      });
+      return;
+    }
+
+    const revokeBtn = e.target.closest("[data-revoke-tokens]");
+    if (revokeBtn) {
+      const memberId = revokeBtn.dataset.revokeTokens;
+      window.fbFunctions?.fbRevokeAllTokens(memberId).then(() => {
+        updateMemberLocalAuth(memberId, { tokens: [] });
+        window.showToast("Appareils déconnectés.");
+      }).catch(() => window.showError());
+      return;
+    }
+
     const modBtn = e.target.closest("[data-mod-toggle]");
     if (modBtn) {
       const memberId = modBtn.dataset.modToggle;
@@ -498,14 +554,34 @@ export function bindAddMemberModal() {
     }
 
     try {
-      addMember({ prenom, nom, tel });
+      const newMember = addMember({ prenom, nom, tel });
       document.getElementById("modal-add-member").hidden = true;
-      window.showToast(`${prenom} ${nom} ajouté.`);
+      document.getElementById("modal-invite-code-value").textContent = newMember.invite_code;
+      document.getElementById("modal-invite-code").hidden = false;
       renderAdminMembers();
     } catch {
       errEl.textContent = "Erreur lors de l'ajout. Réessayez.";
       errEl.hidden = false;
     }
+  });
+}
+
+/* ════════════════════════════════════════
+   MODAL CODE INVITATION
+════════════════════════════════════════ */
+
+export function bindInviteCodeModal() {
+  document.getElementById("modal-close-invite").addEventListener("click", () => {
+    document.getElementById("modal-invite-code").hidden = true;
+  });
+  document.getElementById("modal-invite-code").addEventListener("click", e => {
+    if (e.target === e.currentTarget) document.getElementById("modal-invite-code").hidden = true;
+  });
+  document.getElementById("modal-copy-invite").addEventListener("click", () => {
+    const code = document.getElementById("modal-invite-code-value").textContent;
+    navigator.clipboard?.writeText(code)
+      .then(() => window.showToast("Code copié !"))
+      .catch(() => window.showToast("Code : " + code));
   });
 }
 
