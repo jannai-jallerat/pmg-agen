@@ -10,6 +10,7 @@ import {
 import {
   restoreSession,
   bindLoginScreen, bindAdminLoginScreen, bindLogoutButtons,
+  bindPinScreen, bindChoosePinScreen, bindNewDeviceScreen,
 } from './auth.js';
 import {
   renderMemberScreen, bindMemberTabs, bindMemberMonthNav, bindModMonthNav,
@@ -26,6 +27,9 @@ import {
 const SCREENS = [
   "screen-login",
   "screen-admin-login",
+  "screen-pin",
+  "screen-choose-pin",
+  "screen-new-device",
   "screen-member",
   "screen-admin",
 ];
@@ -173,6 +177,9 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLoginScreen();
   bindAdminLoginScreen();
   bindLogoutButtons();
+  bindPinScreen();
+  bindChoosePinScreen();
+  bindNewDeviceScreen();
   bindMemberTabs();
   bindMemberMonthNav();
   bindModMonthNav();

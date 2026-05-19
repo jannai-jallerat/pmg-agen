@@ -524,7 +524,7 @@ function adminDeleteMember(member) {
 
 export function bindAddMemberModal() {
   document.getElementById("add-member-btn").addEventListener("click", () => {
-    ["new-member-prenom","new-member-nom","new-member-tel"].forEach(id => {
+    ["new-member-prenom","new-member-nom","new-member-tel","new-member-dob"].forEach(id => {
       document.getElementById(id).value = "";
     });
     document.getElementById("add-member-error").hidden = true;
@@ -542,10 +542,11 @@ export function bindAddMemberModal() {
   });
 
   document.getElementById("modal-member-confirm").addEventListener("click", () => {
-    const prenom = document.getElementById("new-member-prenom").value.trim();
-    const nom    = document.getElementById("new-member-nom").value.trim();
-    const tel    = document.getElementById("new-member-tel").value.trim();
-    const errEl  = document.getElementById("add-member-error");
+    const prenom         = document.getElementById("new-member-prenom").value.trim();
+    const nom            = document.getElementById("new-member-nom").value.trim();
+    const tel            = document.getElementById("new-member-tel").value.trim();
+    const date_naissance = document.getElementById("new-member-dob").value.trim() || null;
+    const errEl          = document.getElementById("add-member-error");
     errEl.hidden = true;
 
     if (!prenom || !nom) {
@@ -554,11 +555,10 @@ export function bindAddMemberModal() {
     }
 
     try {
-      const newMember = addMember({ prenom, nom, tel });
+      addMember({ prenom, nom, tel, date_naissance });
       document.getElementById("modal-add-member").hidden = true;
-      document.getElementById("modal-invite-code-value").textContent = newMember.invite_code;
-      document.getElementById("modal-invite-code").hidden = false;
       renderAdminMembers();
+      window.showToast(`${prenom} ${nom} ajouté.`);
     } catch {
       errEl.textContent = "Erreur lors de l'ajout. Réessayez.";
       errEl.hidden = false;

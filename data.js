@@ -45,18 +45,14 @@ export function _save(key, val) {
 export function initDemoData() {
   if (!localStorage.getItem("pmg_members")) {
     _save("pmg_members", DEFAULT_MEMBERS.map(m => ({
-      ...m, id: genId(),
-      invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
+      ...m, id: genId(), date_naissance: null,
     })));
   } else {
-    /* Migration : ajouter les champs auth aux membres existants */
+    /* Migration : ajouter date_naissance si absent */
     const members = _load("pmg_members", []);
     let changed = false;
     members.forEach(m => {
-      if (!m.invite_code)            { m.invite_code = _genInviteCode(); changed = true; }
-      if (m.invite_used === undefined){ m.invite_used = false;           changed = true; }
-      if (m.pin_hash    === undefined){ m.pin_hash    = null;            changed = true; }
-      if (!m.tokens)                  { m.tokens      = [];              changed = true; }
+      if (m.date_naissance === undefined) { m.date_naissance = null; changed = true; }
     });
     if (changed) _save("pmg_members", members);
   }
@@ -154,11 +150,11 @@ export function getMemberByName(prenom, nom) {
   ) ?? null;
 }
 
-export function addMember({ prenom, nom, tel }) {
+export function addMember({ prenom, nom, tel, date_naissance }) {
   const members = _load("pmg_members", []);
   const member  = {
-    id: genId(), prenom, nom, tel: tel || "", is_moderator: false,
-    invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
+    id: genId(), prenom, nom, tel: tel || "",
+    date_naissance: date_naissance || null, is_moderator: false,
   };
   members.push(member);
   _save("pmg_members", members);
@@ -204,8 +200,7 @@ export function importMembers(members) {
   );
   const newMembers = toInsert.map(m => ({
     id: genId(), prenom: m.prenom.trim(), nom: m.nom.trim(),
-    tel: (m.tel || "").trim(), is_moderator: false,
-    invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
+    tel: (m.tel || "").trim(), date_naissance: null, is_moderator: false,
   }));
   newMembers.forEach(m => existing.push(m));
   _save("pmg_members", existing);

@@ -126,6 +126,47 @@ a { color: inherit; }
 }
 .auth-hint strong { color: var(--text2); }
 
+/* ── PIN dots ── */
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: .5rem 0 .25rem;
+}
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--gray3);
+  background: transparent;
+  transition: background .15s, border-color .15s;
+}
+.pin-dot.filled {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+/* ── PIN pad ── */
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .5rem;
+}
+.pin-key {
+  padding: .85rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  background: var(--gray);
+  color: var(--text);
+  border: 1px solid var(--gray2);
+  transition: background .12s;
+  user-select: none;
+}
+.pin-key:active { background: var(--blue-lt); }
+.pin-key.pin-key-ghost { background: transparent; border-color: transparent; cursor: default; }
+.pin-key.pin-key-del { font-size: 1rem; color: var(--text2); }
+
 .field-mono { font-family: monospace; letter-spacing: .08em; font-size: 1rem; }
 
 /* ── PIN pad ── */

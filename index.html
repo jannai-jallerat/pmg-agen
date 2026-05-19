@@ -333,6 +333,8 @@
     <input id="new-member-nom" type="text" class="field-input" placeholder="Ex : Dupont" />
     <label class="field-label" for="new-member-tel">Téléphone</label>
     <input id="new-member-tel" type="tel" class="field-input" placeholder="Ex : 06 12 34 56 78" />
+    <label class="field-label" for="new-member-dob">Date de naissance <span style="color:var(--text3);font-weight:400;">(optionnel — pour récupérer le PIN)</span></label>
+    <input id="new-member-dob" type="date" class="field-input" />
     <p id="add-member-error" class="field-error" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="modal-member-cancel">Annuler</button>
@@ -419,6 +421,95 @@
       Ce code est à usage unique et expire à la première connexion.
     </p>
     <button id="modal-close-invite" class="btn btn-primary btn-full" style="margin-top:1rem;">Fermer</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN — SAISIR LE PIN
+══════════════════════════════════════════════ -->
+<div id="screen-pin" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg"><span class="logo-pm">PMG</span></div>
+  </div>
+  <p class="auth-appname">Code PIN</p>
+  <p id="pin-member-name" class="auth-subtitle"></p>
+
+  <div class="auth-card">
+    <div class="pin-dots">
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+    </div>
+    <p id="pin-error" class="field-error" hidden></p>
+
+    <div id="pin-pad" class="pin-pad">
+      <button class="pin-key" data-digit="1">1</button>
+      <button class="pin-key" data-digit="2">2</button>
+      <button class="pin-key" data-digit="3">3</button>
+      <button class="pin-key" data-digit="4">4</button>
+      <button class="pin-key" data-digit="5">5</button>
+      <button class="pin-key" data-digit="6">6</button>
+      <button class="pin-key" data-digit="7">7</button>
+      <button class="pin-key" data-digit="8">8</button>
+      <button class="pin-key" data-digit="9">9</button>
+      <button class="pin-key pin-key-ghost"></button>
+      <button class="pin-key" data-digit="0">0</button>
+      <button class="pin-key pin-key-del" data-digit="del">⌫</button>
+    </div>
+
+    <button id="pin-new-device-btn" class="btn btn-ghost btn-full" style="font-size:.82rem;color:var(--text3);border-color:transparent;margin-top:.25rem;">
+      Nouvel appareil ?
+    </button>
+    <button id="pin-back-btn" class="btn btn-ghost btn-full">← Retour</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN — CHOISIR UN PIN
+══════════════════════════════════════════════ -->
+<div id="screen-choose-pin" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg"><span class="logo-pm">PMG</span></div>
+  </div>
+  <p class="auth-appname">Choisir un code PIN</p>
+  <p id="choose-pin-name" class="auth-subtitle"></p>
+
+  <div class="auth-card">
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:.75rem;">
+      Choisissez un code à 4 chiffres. Il vous sera demandé à chaque connexion sur cet appareil.
+    </p>
+    <label class="field-label" for="choose-pin-input">PIN (4 chiffres)</label>
+    <input id="choose-pin-input" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+      class="field-input" placeholder="• • • •" autocomplete="new-password" />
+    <label class="field-label" for="choose-pin-confirm">Confirmer le PIN</label>
+    <input id="choose-pin-confirm" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+      class="field-input" placeholder="• • • •" autocomplete="new-password" />
+    <p id="choose-pin-error" class="field-error" hidden></p>
+    <button id="choose-pin-btn" class="btn btn-primary btn-full">Valider</button>
+    <button id="choose-pin-back" class="btn btn-ghost btn-full">← Retour</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN — NOUVEL APPAREIL (vérif date de naissance)
+══════════════════════════════════════════════ -->
+<div id="screen-new-device" class="screen screen-auth" hidden>
+  <div class="auth-logo">
+    <div class="logo-box logo-lg"><span class="logo-pm">PMG</span></div>
+  </div>
+  <p class="auth-appname">Nouvel appareil</p>
+  <p class="auth-subtitle">Vérification de votre identité</p>
+
+  <div class="auth-card">
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:.75rem;">
+      Entrez votre date de naissance pour réinitialiser votre PIN sur cet appareil.
+    </p>
+    <label class="field-label" for="new-device-dob">Date de naissance</label>
+    <input id="new-device-dob" type="date" class="field-input" />
+    <p id="new-device-error" class="field-error" hidden></p>
+    <button id="new-device-btn" class="btn btn-primary btn-full">Vérifier</button>
+    <button id="new-device-back" class="btn btn-ghost btn-full">← Retour</button>
   </div>
 </div>
 
