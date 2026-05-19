@@ -169,11 +169,15 @@ export function bindLoginScreen() {
         if (tokenExplicitlyInvalid) localStorage.removeItem(TOKEN_KEY);
 
         if (member) {
+          // 1. Session initialisée
           currentMember = member;
           isAdmin = false;
           _saveLastUser(member.prenom, member.nom);
+          // 2. Listeners de session précédente purgés avant tout rendu
+          window.clearMemberListeners?.();
           inputPrenom.value = "";
           inputNom.value    = "";
+          // 3. Rendu uniquement quand currentMember est défini
           window.renderMemberScreen();
           window.showScreen("screen-member");
           return;
@@ -258,11 +262,19 @@ export function bindFirstLoginScreen() {
         timeout15s,
       ]);
       clearTimeout(timeoutHandle);
+
+      // Garde défensif : fbFirstLogin doit retourner un membre valide
+      if (!member) throw new Error("INVALID_INVITE");
+
+      // 1. Session initialisée
       currentMember = member;
       isAdmin = false;
       _saveLastUser(member.prenom, member.nom);
+      // 2. Listeners de session précédente purgés avant tout rendu
+      window.clearMemberListeners?.();
       ["first-prenom","first-nom","first-invite","first-pin","first-pin-confirm"]
         .forEach(id => { document.getElementById(id).value = ""; });
+      // 3. Rendu uniquement quand currentMember est défini
       window.renderMemberScreen();
       window.showScreen("screen-member");
       window.showToast("Compte activé ! Bienvenue.");
@@ -358,10 +370,17 @@ export function bindPinScreen() {
         if (!member) throw new Error("INVALID_PIN");
       }
 
+      // Garde défensif : fbLoginWithPIN doit retourner un membre valide
+      if (!member) throw new Error("INVALID_PIN");
+
+      // 1. Session initialisée
       currentMember = member;
       isAdmin = false;
       _saveLastUser(member.prenom, member.nom);
+      // 2. Listeners de session précédente purgés avant tout rendu
+      window.clearMemberListeners?.();
       _resetPinPad();
+      // 3. Rendu uniquement quand currentMember est défini
       window.renderMemberScreen();
       window.showScreen("screen-member");
     } catch (e) {
