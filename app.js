@@ -125,32 +125,6 @@ async function syncFromFirebase() {
   } catch {}
 }
 
-/* ── Service Worker (PWA) ── */
-
-if ('serviceWorker' in navigator) {
-  const prevController = navigator.serviceWorker.controller;
-  let swRefreshing = false;
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // Ignore le premier enregistrement (pas de mise à jour, juste l'activation initiale)
-    if (!prevController || swRefreshing) return;
-    swRefreshing = true;
-    const memberScreen = document.getElementById("screen-member");
-    const adminScreen  = document.getElementById("screen-admin");
-    const isInApp = (memberScreen && !memberScreen.hidden) || (adminScreen && !adminScreen.hidden);
-    if (isInApp) {
-      window.showToast?.("Mise à jour disponible. Rechargez pour l'appliquer.");
-    } else {
-      window.location.reload();
-    }
-  });
-
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js')
-      .catch(err => console.warn('Service Worker:', err));
-  });
-}
-
 /* ── DOMContentLoaded — initialisation synchrone ── */
 
 document.addEventListener("DOMContentLoaded", () => {
