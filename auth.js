@@ -12,8 +12,8 @@ const PIN_LENGTH    = 4;
 export let currentMember = null;
 export let isAdmin       = false;
 
-/* membre trouvé par nom, en attente de validation PIN */
-let _pendingMember = null;
+let _pendingMember  = null;  // membre trouvé, en attente de PIN
+let _pendingIsReset = false; // vrai si l'admin a déclenché un reset PIN
 
 /* ── Crypto SHA-256 ── */
 
@@ -34,8 +34,8 @@ export function restoreSession(member) {
 /* ── Connexion effective (appelée UNE SEULE FOIS après validation PIN) ── */
 
 function connectMember(member) {
-  currentMember = member;
-  isAdmin       = false;
+  currentMember  = member;
+  isAdmin        = false;
   _pendingMember = null;
   localStorage.setItem(SESSION_KEY, JSON.stringify({
     id: member.id, prenom: member.prenom, nom: member.nom,
@@ -59,9 +59,10 @@ export function loginAdmin(pwd) {
 /* ── Logout ── */
 
 export function logout() {
-  currentMember  = null;
-  isAdmin        = false;
-  _pendingMember = null;
+  currentMember   = null;
+  isAdmin         = false;
+  _pendingMember  = null;
+  _pendingIsReset = false;
   localStorage.removeItem(SESSION_KEY);
 }
 
@@ -121,7 +122,7 @@ export function bindLoginScreen() {
     document.getElementById("admin-pwd").focus();
   });
 
-  function doLogin() {
+  async function doLogin() {
     errEl.hidden = true;
     btn.disabled = true;
 
@@ -147,25 +148,43 @@ export function bindLoginScreen() {
       }
 
       localStorage.setItem(LAST_USER_KEY, JSON.stringify({
-        prenom: member.prenom,
-        nom:    member.nom,
+        prenom: member.prenom, nom: member.nom,
       }));
       inputPrenom.value = "";
       inputNom.value    = "";
 
-      _pendingMember = member;
+      _pendingMember  = member;
+      _pendingIsReset = false;
+
+      /* Vérification Firebase du flag pin_reset (max 3 s, non bloquant) */
+      window.showSpinner();
+      try {
+        const fresh = await Promise.race([
+          window.fbFunctions?.fbGetMember(member.id) ?? Promise.resolve(null),
+          new Promise(r => setTimeout(() => r(null), 3000)),
+        ]);
+        if (fresh?.pin_reset === true) _pendingIsReset = true;
+      } catch {}
+      window.hideSpinner();
+
+      if (_pendingIsReset) {
+        /* Admin a demandé un reset → ignorer le PIN local */
+        localStorage.removeItem(_pinKey(member.id));
+        _resetChoosePin();
+        window.showScreen("screen-choose-pin");
+        return;
+      }
 
       const storedPin = localStorage.getItem(_pinKey(member.id));
       if (!storedPin) {
-        /* Première connexion → choisir un PIN */
         _resetChoosePin();
         window.showScreen("screen-choose-pin");
       } else {
-        /* Connexion normale → saisir le PIN */
         _resetPinPad();
         window.showScreen("screen-pin");
       }
-    } catch (e) {
+    } catch {
+      window.hideSpinner();
       window.showError();
     } finally {
       btn.disabled = false;
@@ -182,7 +201,8 @@ let _pinEntry = "";
 function _resetPinPad() {
   _pinEntry = "";
   _renderPinDots();
-  document.getElementById("pin-error").hidden = true;
+  document.getElementById("pin-error").hidden      = true;
+  document.getElementById("pin-forgot-msg").hidden = true;
   const nameEl = document.getElementById("pin-member-name");
   if (nameEl && _pendingMember) {
     nameEl.textContent = _pendingMember.prenom + " " + _pendingMember.nom;
@@ -196,10 +216,11 @@ function _renderPinDots() {
 }
 
 export function bindPinScreen() {
-  const pad         = document.getElementById("pin-pad");
-  const errEl       = document.getElementById("pin-error");
-  const backBtn     = document.getElementById("pin-back-btn");
-  const newDevBtn   = document.getElementById("pin-new-device-btn");
+  const pad       = document.getElementById("pin-pad");
+  const errEl     = document.getElementById("pin-error");
+  const backBtn   = document.getElementById("pin-back-btn");
+  const forgotBtn = document.getElementById("pin-forgot-btn");
+  const forgotMsg = document.getElementById("pin-forgot-msg");
 
   pad.addEventListener("click", async e => {
     const btn = e.target.closest("[data-digit]");
@@ -223,16 +244,14 @@ export function bindPinScreen() {
   });
 
   backBtn.addEventListener("click", () => {
-    _pendingMember = null;
+    _pendingMember  = null;
+    _pendingIsReset = false;
     _pinEntry = "";
     _goLogin();
   });
 
-  newDevBtn.addEventListener("click", () => {
-    document.getElementById("new-device-error").hidden = true;
-    document.getElementById("new-device-dob").value   = "";
-    window.showScreen("screen-new-device");
-    document.getElementById("new-device-dob").focus();
+  forgotBtn.addEventListener("click", () => {
+    forgotMsg.hidden = false;
   });
 }
 
@@ -262,11 +281,12 @@ function _resetChoosePin() {
   const i2 = document.getElementById("choose-pin-confirm");
   if (i1) i1.value = "";
   if (i2) i2.value = "";
+  document.getElementById("choose-pin-error").hidden = true;
   const nameEl = document.getElementById("choose-pin-name");
   if (nameEl && _pendingMember) {
     nameEl.textContent = _pendingMember.prenom + " " + _pendingMember.nom;
   }
-  document.getElementById("choose-pin-error").hidden = true;
+  setTimeout(() => document.getElementById("choose-pin-input")?.focus(), 50);
 }
 
 export function bindChoosePinScreen() {
@@ -282,7 +302,8 @@ export function bindChoosePinScreen() {
   });
 
   backBtn.addEventListener("click", () => {
-    _pendingMember = null;
+    _pendingMember  = null;
+    _pendingIsReset = false;
     _goLogin();
     errEl.hidden = true;
   });
@@ -309,59 +330,19 @@ export function bindChoosePinScreen() {
     try {
       const hash = await hashPIN(p1);
       localStorage.setItem(_pinKey(_pendingMember.id), hash);
+
+      /* Si c'était un reset admin : remettre pin_reset à false dans Firebase */
+      if (_pendingIsReset) {
+        window.fbFunctions?.fbSetPinReset(_pendingMember.id, false);
+        _pendingIsReset = false;
+      }
+
       connectMember(_pendingMember);
     } catch {
       window.showError();
     } finally {
       btn.disabled = false;
     }
-  }
-}
-
-/* ════════════════════════════════════════
-   SCREEN NOUVEL APPAREIL (vérif date de naissance)
-════════════════════════════════════════ */
-
-export function bindNewDeviceScreen() {
-  const input   = document.getElementById("new-device-dob");
-  const btn     = document.getElementById("new-device-btn");
-  const backBtn = document.getElementById("new-device-back");
-  const errEl   = document.getElementById("new-device-error");
-
-  btn.addEventListener("click", () => doVerifyDOB());
-  input.addEventListener("keydown", e => { if (e.key === "Enter") doVerifyDOB(); });
-
-  backBtn.addEventListener("click", () => {
-    errEl.hidden = true;
-    _resetPinPad();
-    window.showScreen("screen-pin");
-  });
-
-  function doVerifyDOB() {
-    const entered = input.value.trim();
-    errEl.hidden = true;
-
-    if (!_pendingMember) {
-      _goLogin();
-      return;
-    }
-
-    if (!_pendingMember.date_naissance) {
-      errEl.textContent = "Aucune date de naissance enregistrée. Contactez un responsable.";
-      errEl.hidden = false;
-      return;
-    }
-
-    if (entered !== _pendingMember.date_naissance) {
-      errEl.textContent = "Date de naissance incorrecte. Réessayez.";
-      errEl.hidden = false;
-      return;
-    }
-
-    /* Correct → supprimer l'ancien PIN, choisir un nouveau */
-    localStorage.removeItem(_pinKey(_pendingMember.id));
-    _resetChoosePin();
-    window.showScreen("screen-choose-pin");
   }
 }
 
@@ -398,7 +379,7 @@ export function bindAdminLoginScreen() {
       input.value = "";
       window.renderAdminScreen();
       window.showScreen("screen-admin");
-    } catch (e) {
+    } catch {
       window.showError();
     } finally {
       btn.disabled = false;

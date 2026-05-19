@@ -57,11 +57,21 @@ async function fbAddMember(member) {
       nom:          member.nom,
       tel:          member.tel || "",
       is_moderator: !!member.is_moderator,
-      invite_code:  member.invite_code  || generateInviteCode(),
-      invite_used:  !!member.invite_used,
-      pin_hash:     member.pin_hash     || null,
-      tokens:       member.tokens       || [],
+      pin_reset:    false,
     });
+  } catch {}
+}
+
+async function fbGetMember(memberId) {
+  try {
+    const d = await getDoc(doc(db, "members", memberId));
+    return d.exists() ? { id: d.id, ...d.data() } : null;
+  } catch { return null; }
+}
+
+async function fbSetPinReset(memberId, value) {
+  try {
+    await setDoc(doc(db, "members", memberId), { pin_reset: value }, { merge: true });
   } catch {}
 }
 
@@ -322,10 +332,7 @@ async function fbSeedIfEmpty(defaultMembers, defaultSettings) {
           nom:          m.nom,
           tel:          m.tel || "",
           is_moderator: !!m.is_moderator,
-          invite_code:  m.invite_code  || generateInviteCode(),
-          invite_used:  !!m.invite_used,
-          pin_hash:     m.pin_hash     || null,
-          tokens:       m.tokens       || [],
+          pin_reset:    false,
         })),
     ]);
   } catch {}
@@ -334,13 +341,11 @@ async function fbSeedIfEmpty(defaultMembers, defaultSettings) {
 /* ── Exposition globale (non-bloquant : si ce module échoue, l'appli continue) ── */
 
 window.fbFunctions = {
-  fbGetMembers, fbAddMember, fbDeleteMember,
+  fbGetMembers, fbAddMember, fbDeleteMember, fbGetMember, fbSetPinReset,
   fbGetSettings, fbUpdateSetting,
   fbGetSlots, fbGenerateMissingSlots, fbCloseSlot, fbOpenSlot, fbUpdateFutureSlotsPlaces,
   fbGetRegistrations, fbAddRegistration, fbDeleteRegistration,
   fbListenDay, fbListenWeek,
-  fbVerifyToken, fbFirstLogin, fbLoginWithPIN,
-  fbRevokeToken, fbResetInvite, fbRevokeAllTokens,
   fbGetQuota, fbIncrementQuota, fbDecrementQuota,
   fbSeedIfEmpty,
 };

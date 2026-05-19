@@ -45,16 +45,8 @@ export function _save(key, val) {
 export function initDemoData() {
   if (!localStorage.getItem("pmg_members")) {
     _save("pmg_members", DEFAULT_MEMBERS.map(m => ({
-      ...m, id: genId(), date_naissance: null,
+      ...m, id: genId(),
     })));
-  } else {
-    /* Migration : ajouter date_naissance si absent */
-    const members = _load("pmg_members", []);
-    let changed = false;
-    members.forEach(m => {
-      if (m.date_naissance === undefined) { m.date_naissance = null; changed = true; }
-    });
-    if (changed) _save("pmg_members", members);
   }
   if (!localStorage.getItem("pmg_settings"))      _save("pmg_settings",      DEFAULT_SETTINGS);
   if (!localStorage.getItem("pmg_slots"))         _save("pmg_slots",         []);
@@ -150,11 +142,10 @@ export function getMemberByName(prenom, nom) {
   ) ?? null;
 }
 
-export function addMember({ prenom, nom, tel, date_naissance }) {
+export function addMember({ prenom, nom, tel }) {
   const members = _load("pmg_members", []);
   const member  = {
-    id: genId(), prenom, nom, tel: tel || "",
-    date_naissance: date_naissance || null, is_moderator: false,
+    id: genId(), prenom, nom, tel: tel || "", is_moderator: false,
   };
   members.push(member);
   _save("pmg_members", members);
@@ -200,7 +191,7 @@ export function importMembers(members) {
   );
   const newMembers = toInsert.map(m => ({
     id: genId(), prenom: m.prenom.trim(), nom: m.nom.trim(),
-    tel: (m.tel || "").trim(), date_naissance: null, is_moderator: false,
+    tel: (m.tel || "").trim(), is_moderator: false,
   }));
   newMembers.forEach(m => existing.push(m));
   _save("pmg_members", existing);
