@@ -8,7 +8,7 @@ import {
   initDemoData, generateMissingSlots, getMembers,
 } from './data.js';
 import {
-  bindLoginScreen, bindFirstLoginScreen, bindPinScreen,
+  bindLoginScreen,
   bindAdminLoginScreen, bindLogoutButtons,
 } from './auth.js';
 import {
@@ -26,8 +26,6 @@ import {
 
 const SCREENS = [
   "screen-login",
-  "screen-first-login",
-  "screen-pin",
   "screen-admin-login",
   "screen-member",
   "screen-admin",
@@ -169,8 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* 4. Binding des composants UI */
   bindLoginScreen();
-  bindFirstLoginScreen();
-  bindPinScreen();
   bindAdminLoginScreen();
   bindLogoutButtons();
   bindInviteCodeModal();
