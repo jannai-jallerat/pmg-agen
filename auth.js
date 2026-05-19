@@ -2,7 +2,7 @@
    auth.js — Authentification token/PIN/code invitation
 ══════════════════════════════════════════════ */
 
-import { getSettings } from './data.js';
+import { getSettings, _load } from './data.js';
 
 const LAST_USER_KEY = "pmg_last_user";
 const TOKEN_KEY     = "pmg_token";
@@ -12,6 +12,26 @@ export let isAdmin       = false;
 
 let _pendingPrenom = "";
 let _pendingNom    = "";
+
+/* ── Fallback local (PIN hash en cache localStorage) ── */
+
+async function _hashPIN(pin) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function _localPinVerify(prenom, nom, pin) {
+  try {
+    const members = _load("pmg_members", []);
+    const pinHash = await _hashPIN(pin);
+    return members.find(m =>
+      m.prenom?.toLowerCase() === prenom.toLowerCase() &&
+      m.nom?.toLowerCase()    === nom.toLowerCase()    &&
+      m.pin_hash              === pinHash              &&
+      m.invite_used           === true
+    ) || null;
+  } catch { return null; }
+}
 
 /* ── Session ── */
 
@@ -129,10 +149,25 @@ export function bindLoginScreen() {
         const timeout8s = new Promise((_, rej) =>
           setTimeout(() => rej(new Error("TIMEOUT")), 8000)
         );
-        const member = await Promise.race([
-          window.fbFunctions.fbVerifyToken(token),
-          timeout8s,
-        ]);
+
+        let member;
+        let tokenExplicitlyInvalid = false;
+
+        try {
+          member = await Promise.race([
+            window.fbFunctions.fbVerifyToken(token),
+            timeout8s,
+          ]);
+          // fbVerifyToken retourne null = token introuvable (Firestore joignable)
+          if (member === null) tokenExplicitlyInvalid = true;
+        } catch {
+          // Erreur réseau ou timeout : on garde le token, on passe en PIN
+          member = undefined;
+        }
+
+        // Ne supprime le token que si Firestore a confirmé qu'il est invalide
+        if (tokenExplicitlyInvalid) localStorage.removeItem(TOKEN_KEY);
+
         if (member) {
           currentMember = member;
           isAdmin = false;
@@ -143,27 +178,16 @@ export function bindLoginScreen() {
           window.showScreen("screen-member");
           return;
         }
-        localStorage.removeItem(TOKEN_KEY);
       }
-      // Pas de token valide → PIN
+      // Pas de token valide ou vérifiable → PIN
       _pendingPrenom = prenom;
       _pendingNom    = nom;
       document.getElementById("pin-screen-name").textContent = `${prenom} ${nom}`;
       _resetPinPad();
       window.showScreen("screen-pin");
     } catch (e) {
-      if (e.message === "TIMEOUT") {
-        // Token non vérifiable (réseau lent) → PIN screen sans token
-        localStorage.removeItem(TOKEN_KEY);
-        _pendingPrenom = prenom;
-        _pendingNom    = nom;
-        document.getElementById("pin-screen-name").textContent = `${prenom} ${nom}`;
-        _resetPinPad();
-        window.showScreen("screen-pin");
-      } else {
-        errEl.textContent = "Erreur de connexion. Vérifiez votre connexion internet.";
-        errEl.hidden = false;
-      }
+      errEl.textContent = "Erreur de connexion. Vérifiez votre connexion internet.";
+      errEl.hidden = false;
     } finally {
       window.hideSpinner?.();
       btn.disabled = false;
@@ -225,7 +249,15 @@ export function bindFirstLoginScreen() {
     btn.disabled = true;
     window.showSpinner?.();
     try {
-      const member = await window.fbFunctions.fbFirstLogin(prenom, nom, inviteCode, pin);
+      let timeoutHandle;
+      const timeout15s = new Promise((_, rej) => {
+        timeoutHandle = setTimeout(() => rej(new Error("TIMEOUT")), 15000);
+      });
+      const member = await Promise.race([
+        window.fbFunctions.fbFirstLogin(prenom, nom, inviteCode, pin),
+        timeout15s,
+      ]);
+      clearTimeout(timeoutHandle);
       currentMember = member;
       isAdmin = false;
       _saveLastUser(member.prenom, member.nom);
@@ -237,6 +269,8 @@ export function bindFirstLoginScreen() {
     } catch (e) {
       errEl.textContent = e.message === "INVALID_INVITE"
         ? "Code d'invitation invalide ou déjà utilisé."
+        : e.message === "TIMEOUT"
+        ? "Connexion lente. Vérifiez votre réseau et réessayez."
         : "Erreur de connexion. Vérifiez votre connexion internet.";
       errEl.hidden = false;
     } finally {
@@ -295,13 +329,35 @@ export function bindPinScreen() {
     errEl.hidden = true;
     window.showSpinner?.();
     try {
-      const timeout8s = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error("TIMEOUT")), 8000)
-      );
-      const member = await Promise.race([
-        window.fbFunctions.fbLoginWithPIN(_pendingPrenom, _pendingNom, pin),
-        timeout8s,
-      ]);
+      let member = null;
+
+      if (window.fbFunctions?.fbLoginWithPIN) {
+        let timeoutHandle;
+        const timeout8s = new Promise((_, rej) => {
+          timeoutHandle = setTimeout(() => rej(new Error("TIMEOUT")), 8000);
+        });
+        try {
+          member = await Promise.race([
+            window.fbFunctions.fbLoginWithPIN(_pendingPrenom, _pendingNom, pin),
+            timeout8s,
+          ]);
+          clearTimeout(timeoutHandle);
+        } catch (e) {
+          clearTimeout(timeoutHandle);
+          if (e.message === "INVALID_PIN") {
+            // PIN clairement incorrect — pas besoin de fallback local
+            throw e;
+          }
+          // Erreur réseau ou timeout → tenter la vérification locale
+          member = await _localPinVerify(_pendingPrenom, _pendingNom, pin);
+          if (!member) throw e; // local aussi échoue → remonte l'erreur d'origine
+        }
+      } else {
+        // Firebase non disponible — vérification locale uniquement
+        member = await _localPinVerify(_pendingPrenom, _pendingNom, pin);
+        if (!member) throw new Error("INVALID_PIN");
+      }
+
       currentMember = member;
       isAdmin = false;
       _saveLastUser(member.prenom, member.nom);
@@ -311,9 +367,13 @@ export function bindPinScreen() {
     } catch (e) {
       _pinDigits = [];
       _updatePinDots();
-      errEl.textContent = e.message === "TIMEOUT"
-        ? "Connexion lente. Vérifiez votre réseau et réessayez."
-        : "PIN incorrect. Réessayez.";
+      if (e.message === "TIMEOUT") {
+        errEl.textContent = "Connexion lente. Vérifiez votre réseau et réessayez.";
+      } else if (e.message === "INVALID_PIN") {
+        errEl.textContent = "PIN incorrect. Réessayez.";
+      } else {
+        errEl.textContent = "Impossible de se connecter. Vérifiez votre réseau.";
+      }
       errEl.hidden = false;
     } finally {
       window.hideSpinner?.();

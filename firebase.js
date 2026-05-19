@@ -68,14 +68,13 @@ async function fbAddMember(member) {
 /* ── Auth membre ── */
 
 async function fbVerifyToken(token) {
-  try {
-    const snap = await getDocs(collection(db, "members"));
-    for (const d of snap.docs) {
-      const data = d.data();
-      if (data.tokens && data.tokens.includes(token)) return { id: d.id, ...data };
-    }
-    return null;
-  } catch { return null; }
+  // Ne catch pas les erreurs réseau — l'appelant doit les distinguer de "token absent"
+  const snap = await getDocs(collection(db, "members"));
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (data.tokens && data.tokens.includes(token)) return { id: d.id, ...data };
+  }
+  return null; // token introuvable (réseau OK mais token invalide)
 }
 
 async function fbFirstLogin(prenom, nom, inviteCode, pin) {

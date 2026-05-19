@@ -135,7 +135,17 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.warn('Service Worker:', err));
   });
   navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type === 'SW_UPDATED') window.location.reload();
+    if (event.data?.type === 'SW_UPDATED') {
+      // Ne recharge automatiquement que si l'utilisateur n'est pas en train d'utiliser l'app
+      const memberScreen = document.getElementById("screen-member");
+      const adminScreen  = document.getElementById("screen-admin");
+      const isInApp = (memberScreen && !memberScreen.hidden) || (adminScreen && !adminScreen.hidden);
+      if (isInApp) {
+        window.showToast?.("Mise à jour installée. Rechargez pour l'appliquer.");
+      } else {
+        window.location.reload();
+      }
+    }
   });
 }
 

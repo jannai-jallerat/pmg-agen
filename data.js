@@ -205,6 +205,7 @@ export function importMembers(members) {
   const newMembers = toInsert.map(m => ({
     id: genId(), prenom: m.prenom.trim(), nom: m.nom.trim(),
     tel: (m.tel || "").trim(), is_moderator: false,
+    invite_code: _genInviteCode(), invite_used: false, pin_hash: null, tokens: [],
   }));
   newMembers.forEach(m => existing.push(m));
   _save("pmg_members", existing);
