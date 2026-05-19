@@ -1,15 +1,16 @@
 /* ═══════════════════════════════════════════
-   auth.js — Authentification prénom + nom
+   auth.js — Login membre, login admin, logout
 ══════════════════════════════════════════════ */
 
-import { getSettings } from './data.js';
+import { getMemberByName, getSettings } from './data.js';
 
+const SESSION_KEY   = "pmg_session";
 const LAST_USER_KEY = "pmg_last_user";
 
 export let currentMember = null;
 export let isAdmin       = false;
 
-/* ── Pré-remplissage ── */
+/* ── Pré-remplissage depuis la mémoire ── */
 
 function _prefillLogin() {
   const saved = localStorage.getItem(LAST_USER_KEY);
@@ -25,23 +26,45 @@ function _prefillLogin() {
   } catch { return false; }
 }
 
-function _saveLastUser(prenom, nom) {
-  localStorage.setItem(LAST_USER_KEY, JSON.stringify({ prenom, nom }));
-}
-
-/* ── Session ── */
-
 export function restoreSession(member) {
   currentMember = member;
   isAdmin       = false;
 }
 
-/* ── Admin login ── */
+/* ── Login membre ── */
+
+export function loginMember(rawPrenom, rawNom) {
+  const prenom = rawPrenom.trim();
+  const nom    = rawNom.trim();
+
+  if (!prenom || !nom) {
+    return { ok: false, error: "Veuillez saisir votre prénom et votre nom." };
+  }
+
+  const member = getMemberByName(prenom, nom);
+  if (!member) {
+    return { ok: false, error: "Nom introuvable. Contactez un responsable." };
+  }
+
+  currentMember = member;
+  isAdmin       = false;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    id: member.id, prenom: member.prenom, nom: member.nom,
+    is_moderator: !!member.is_moderator,
+  }));
+  return { ok: true, member };
+}
+
+/* ── Login admin ── */
 
 export function loginAdmin(pwd) {
-  if (!pwd) return { ok: false, error: "Veuillez saisir le mot de passe." };
+  if (!pwd) {
+    return { ok: false, error: "Veuillez saisir le mot de passe." };
+  }
   const settings = getSettings();
-  if (pwd !== settings.admin_pwd) return { ok: false, error: "Mot de passe incorrect." };
+  if (pwd !== settings.admin_pwd) {
+    return { ok: false, error: "Mot de passe incorrect." };
+  }
   isAdmin       = true;
   currentMember = null;
   return { ok: true };
@@ -52,13 +75,10 @@ export function loginAdmin(pwd) {
 export function logout() {
   currentMember = null;
   isAdmin       = false;
-  window.clearMemberListeners?.();
-  window.clearAdminListeners?.();
+  localStorage.removeItem(SESSION_KEY);
 }
 
-/* ═══════════════════════════════
-   ÉCRAN LOGIN PRINCIPAL
-═══════════════════════════════ */
+/* ── Binding écran login membre ── */
 
 export function bindLoginScreen() {
   const inputPrenom = document.getElementById("login-prenom");
@@ -68,11 +88,18 @@ export function bindLoginScreen() {
   const adminBtn    = document.getElementById("admin-access-btn");
   const hint        = document.getElementById("login-prefill-hint");
 
+  /* Pré-remplissage au chargement */
   const prefilled = _prefillLogin();
   if (prefilled) btn.focus();
 
+  /* Masquer le hint dès que l'utilisateur tape */
   [inputPrenom, inputNom].forEach(el => {
     el.addEventListener("input", () => { if (hint) hint.hidden = true; });
+  });
+
+  btn.addEventListener("click", () => doLogin());
+  [inputPrenom, inputNom].forEach(el => {
+    el.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
   });
 
   adminBtn.addEventListener("click", () => {
@@ -83,73 +110,35 @@ export function bindLoginScreen() {
     document.getElementById("admin-pwd").focus();
   });
 
-  btn.addEventListener("click", () => doLogin());
-  [inputPrenom, inputNom].forEach(el => {
-    el.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
-  });
-
-  async function doLogin() {
-    const prenom = inputPrenom.value.trim();
-    const nom    = inputNom.value.trim();
+  function doLogin() {
     errEl.hidden = true;
-
-    if (!prenom || !nom) {
-      errEl.textContent = "Veuillez saisir votre prénom et votre nom.";
-      errEl.hidden = false; return;
-    }
-
     btn.disabled = true;
-    window.showSpinner?.();
-
     try {
-      // Recherche Firebase avec timeout 8s, fallback localStorage
-      let members = [];
-      if (window.fbFunctions?.fbGetMembers) {
-        const timeout8s = new Promise((_, rej) =>
-          setTimeout(() => rej(new Error("TIMEOUT")), 8000)
-        );
-        try {
-          members = await Promise.race([window.fbFunctions.fbGetMembers(), timeout8s]);
-        } catch {
-          // Timeout ou erreur réseau — fallback localStorage ci-dessous
-        }
-      }
-      if (members.length === 0) {
-        members = JSON.parse(localStorage.getItem("pmg_members") || "[]");
-      }
-
-      const member = members.find(m =>
-        m.prenom?.toLowerCase() === prenom.toLowerCase() &&
-        m.nom?.toLowerCase()    === nom.toLowerCase()
-      ) || null;
-
-      if (!member) {
-        errEl.textContent = "Nom introuvable. Vérifiez votre prénom et votre nom.";
-        errEl.hidden = false;
+      const result = loginMember(inputPrenom.value, inputNom.value);
+      if (!result.ok) {
+        errEl.textContent = result.error;
+        errEl.hidden      = false;
+        inputPrenom.focus();
         return;
       }
-
-      currentMember = member;
-      isAdmin = false;
-      _saveLastUser(member.prenom, member.nom);
-      window.clearMemberListeners?.();
+      /* Mémoriser le dernier utilisateur (nom canonique depuis les données) */
+      localStorage.setItem(LAST_USER_KEY, JSON.stringify({
+        prenom: result.member.prenom,
+        nom:    result.member.nom,
+      }));
       inputPrenom.value = "";
       inputNom.value    = "";
       window.renderMemberScreen();
       window.showScreen("screen-member");
     } catch (e) {
-      errEl.textContent = "Erreur de connexion. Vérifiez votre connexion internet.";
-      errEl.hidden = false;
+      window.showError();
     } finally {
-      window.hideSpinner?.();
       btn.disabled = false;
     }
   }
 }
 
-/* ═══════════════════════════════
-   ÉCRAN LOGIN ADMIN
-═══════════════════════════════ */
+/* ── Binding écran login admin ── */
 
 export function bindAdminLoginScreen() {
   const input = document.getElementById("admin-pwd");
@@ -177,14 +166,14 @@ export function bindAdminLoginScreen() {
       const result = loginAdmin(input.value);
       if (!result.ok) {
         errEl.textContent = result.error;
-        errEl.hidden = false;
+        errEl.hidden      = false;
         input.focus();
         return;
       }
       input.value = "";
       window.renderAdminScreen();
       window.showScreen("screen-admin");
-    } catch {
+    } catch (e) {
       window.showError();
     } finally {
       btn.disabled = false;
@@ -192,9 +181,7 @@ export function bindAdminLoginScreen() {
   }
 }
 
-/* ═══════════════════════════════
-   DÉCONNEXION
-═══════════════════════════════ */
+/* ── Binding déconnexion ── */
 
 export function bindLogoutButtons() {
   function _onLogout() {
@@ -205,6 +192,7 @@ export function bindLogoutButtons() {
     if (prefilled) document.getElementById("login-btn").focus();
     else            document.getElementById("login-prenom").focus();
   }
+
   document.getElementById("member-logout").addEventListener("click", _onLogout);
   document.getElementById("admin-logout").addEventListener("click", _onLogout);
 }

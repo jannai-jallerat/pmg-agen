@@ -5,11 +5,11 @@
 
 import {
   DEFAULT_SETTINGS,
-  initDemoData, generateMissingSlots, getMembers,
+  initDemoData, generateMissingSlots, getMemberById, getMembers,
 } from './data.js';
 import {
-  bindLoginScreen,
-  bindAdminLoginScreen, bindLogoutButtons,
+  restoreSession,
+  bindLoginScreen, bindAdminLoginScreen, bindLogoutButtons,
 } from './auth.js';
 import {
   renderMemberScreen, bindMemberTabs, bindMemberMonthNav, bindModMonthNav,
@@ -19,7 +19,6 @@ import {
   bindAdminTabs, bindAdminMonthNav,
   bindCloseSlotModal, openCloseSlotModal,
   bindAddMemberModal, bindImportModal, bindAdminSettings, bindAdminStats,
-  bindInviteCodeModal,
 } from './admin.js';
 
 /* ── Screens ── */
@@ -125,6 +124,15 @@ async function syncFromFirebase() {
   } catch {}
 }
 
+/* ── Service Worker (PWA) ── */
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .catch(err => console.warn('Service Worker:', err));
+  });
+}
+
 /* ── DOMContentLoaded — initialisation synchrone ── */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -135,15 +143,36 @@ document.addEventListener("DOMContentLoaded", () => {
   /* 2. Génère les créneaux manquants (localStorage) */
   try { generateMissingSlots(); } catch (e) { console.warn("generateMissingSlots:", e); }
 
-  /* 3. Afficher l'écran de login (l'auto-login se fait au clic "Se connecter") */
-  showScreen("screen-login");
-  document.getElementById("login-prenom").focus();
+  /* 3. Restauration de session */
+  const saved = localStorage.getItem("pmg_session");
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      const member = getMemberById(parsed.id);
+      if (member) {
+        restoreSession(member);
+        renderMemberScreen();
+        showScreen("screen-member");
+      } else {
+        localStorage.removeItem("pmg_session");
+        showScreen("screen-login");
+        document.getElementById("login-prenom").focus();
+      }
+    } catch (e) {
+      restoreSession(null);
+      localStorage.removeItem("pmg_session");
+      showScreen("screen-login");
+      document.getElementById("login-prenom").focus();
+    }
+  } else {
+    showScreen("screen-login");
+    document.getElementById("login-prenom").focus();
+  }
 
   /* 4. Binding des composants UI */
   bindLoginScreen();
   bindAdminLoginScreen();
   bindLogoutButtons();
-  bindInviteCodeModal();
   bindMemberTabs();
   bindMemberMonthNav();
   bindModMonthNav();

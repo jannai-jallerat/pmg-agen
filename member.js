@@ -36,36 +36,15 @@ const modState = {
 /* ── Listeners temps réel ── */
 
 let activeListeners = [];
-let _weekSyncTimer  = null;
-
-function _showMemberWeekSync() {
-  clearTimeout(_weekSyncTimer);
-  const el = document.getElementById("member-week-loading");
-  if (el) el.hidden = false;
-  _weekSyncTimer = setTimeout(() => {
-    const el2 = document.getElementById("member-week-loading");
-    if (el2) el2.hidden = true;
-  }, 8000);
-}
-
-function _hideMemberWeekSync() {
-  clearTimeout(_weekSyncTimer);
-  const el = document.getElementById("member-week-loading");
-  if (el) el.hidden = true;
-}
 
 function clearListeners() {
   activeListeners.forEach(fn => { try { fn(); } catch {} });
   activeListeners = [];
-  _hideMemberWeekSync();
 }
 window.clearMemberListeners = clearListeners;
 
 function setupMemberWeekListeners(mondayKey) {
   if (!window.fbFunctions?.fbListenDay) return;
-  _showMemberWeekSync();
-  let fbResponded = false;
-
   const monday = keyToDate(mondayKey);
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
@@ -81,10 +60,6 @@ function setupMemberWeekListeners(mondayKey) {
       if (slotDoc.places !== undefined && slotDoc.places !== slot.places) {
         slot.places = slotDoc.places;
         patchSlotFromFirebase(slotDate, { places: slotDoc.places });
-      }
-      if (!fbResponded) {
-        fbResponded = true;
-        _hideMemberWeekSync();
       }
       if (memberState.selectedWeek !== mondayKey) return;
       refreshDots(document.getElementById("member-cal-body"),
@@ -127,38 +102,33 @@ function setupModWeekListeners(mondayKey) {
 ════════════════════════════════════════ */
 
 export function renderMemberScreen() {
-  try {
-    const member = currentMember;
-    if (!member) return;
+  const member = currentMember;
+  if (!member) return;
 
-    const avatarEl = document.getElementById("member-avatar");
-    const idx      = getAvatarColorIndex(member.id);
-    avatarEl.textContent      = getInitials(fullName(member));
-    avatarEl.style.background = getAvatarBgColor(idx);
+  const avatarEl = document.getElementById("member-avatar");
+  const idx      = getAvatarColorIndex(member.id);
+  avatarEl.textContent      = getInitials(fullName(member));
+  avatarEl.style.background = getAvatarBgColor(idx);
 
-    document.getElementById("mod-badge").hidden   = !member.is_moderator;
-    document.getElementById("mod-tab-btn").hidden = !member.is_moderator;
+  document.getElementById("mod-badge").hidden   = !member.is_moderator;
+  document.getElementById("mod-tab-btn").hidden = !member.is_moderator;
 
-    const today = new Date();
-    memberState.year         = today.getFullYear();
-    memberState.month        = today.getMonth();
-    memberState.selectedWeek = null;
+  const today = new Date();
+  memberState.year         = today.getFullYear();
+  memberState.month        = today.getMonth();
+  memberState.selectedWeek = null;
 
-    if (member.is_moderator) {
-      modState.year         = today.getFullYear();
-      modState.month        = today.getMonth();
-      modState.selectedWeek = null;
-    }
-
-    memberState.settings = getSettings();
-    renderMemberBanner();
-    renderQuotaBar();
-    renderMemberCalendar();
-    switchMemberTab("calendar");
-  } catch (e) {
-    console.warn("renderMemberScreen:", e);
-    window.showToast?.("Erreur d'affichage. Rechargez la page.", "error");
+  if (member.is_moderator) {
+    modState.year         = today.getFullYear();
+    modState.month        = today.getMonth();
+    modState.selectedWeek = null;
   }
+
+  memberState.settings = getSettings();
+  renderMemberBanner();
+  renderQuotaBar();
+  renderMemberCalendar();
+  switchMemberTab("calendar");
 }
 
 /* ════════════════════════════════════════
@@ -263,56 +233,52 @@ function shiftMemberMonth(delta) {
 ════════════════════════════════════════ */
 
 function renderMemberCalendar() {
-  try {
-    const { year, month } = memberState;
-    const member = currentMember;
+  const { year, month } = memberState;
+  const member = currentMember;
 
-    const label = new Date(year, month, 1)
-      .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-    document.getElementById("member-month-label").textContent =
-      label.charAt(0).toUpperCase() + label.slice(1);
+  const label = new Date(year, month, 1)
+    .toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  document.getElementById("member-month-label").textContent =
+    label.charAt(0).toUpperCase() + label.slice(1);
 
-    const today    = new Date();
-    const curYear  = today.getFullYear();
-    const curMonth = today.getMonth();
+  const today    = new Date();
+  const curYear  = today.getFullYear();
+  const curMonth = today.getMonth();
 
-    document.getElementById("member-prev-month").disabled = (year === curYear && month === curMonth);
-    document.getElementById("member-next-month").disabled = false;
+  document.getElementById("member-prev-month").disabled = (year === curYear && month === curMonth);
+  document.getElementById("member-next-month").disabled = false;
 
-    const locked     = !isMonthAccessibleForMember(year, month);
-    const grid       = document.getElementById("member-calendar-grid");
-    const overlay    = document.getElementById("member-cal-overlay");
-    const weekDetail = document.getElementById("member-week-detail");
+  const locked     = !isMonthAccessibleForMember(year, month);
+  const grid       = document.getElementById("member-calendar-grid");
+  const overlay    = document.getElementById("member-cal-overlay");
+  const weekDetail = document.getElementById("member-week-detail");
 
-    grid.classList.toggle("cal-grid-locked", locked);
-    overlay.hidden = !locked;
-    if (locked) {
-      document.getElementById("member-locked-text").textContent = lockedMonthMessage(year, month);
-      weekDetail.hidden = true;
-    }
-
-    const firstDate = dateToKey(new Date(year, month, 1));
-    const lastDate  = dateToKey(lastDayOfMonth(year, month));
-    memberState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
-
-    const calBody = document.getElementById("member-cal-body");
-
-    function handleWeekClick(mondayKey) {
-      memberState.selectedWeek = mondayKey;
-      clearListeners();
-      renderCalendarGrid(calBody, year, month, member.id, mondayKey, handleWeekClick, memberState.slotsMap);
-      renderMemberWeekDetail(mondayKey);
-      setupMemberWeekListeners(mondayKey);
-      setTimeout(() => document.getElementById("member-week-detail")
-        .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
-    }
-
-    renderCalendarGrid(calBody, year, month, member.id, locked ? null : memberState.selectedWeek, handleWeekClick, locked ? {} : memberState.slotsMap);
-    if (!memberState.selectedWeek || locked) weekDetail.hidden = true;
-    else renderMemberWeekDetail(memberState.selectedWeek);
-  } catch (e) {
-    console.warn("renderMemberCalendar:", e);
+  grid.classList.toggle("cal-grid-locked", locked);
+  overlay.hidden = !locked;
+  if (locked) {
+    document.getElementById("member-locked-text").textContent = lockedMonthMessage(year, month);
+    weekDetail.hidden = true;
   }
+
+  const firstDate = dateToKey(new Date(year, month, 1));
+  const lastDate  = dateToKey(lastDayOfMonth(year, month));
+  memberState.slotsMap = getSlotsWithRegistrations(firstDate, lastDate);
+
+  const calBody = document.getElementById("member-cal-body");
+
+  function handleWeekClick(mondayKey) {
+    memberState.selectedWeek = mondayKey;
+    clearListeners();
+    renderCalendarGrid(calBody, year, month, member.id, mondayKey, handleWeekClick, memberState.slotsMap);
+    renderMemberWeekDetail(mondayKey);
+    setupMemberWeekListeners(mondayKey);
+    setTimeout(() => document.getElementById("member-week-detail")
+      .scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
+
+  renderCalendarGrid(calBody, year, month, member.id, locked ? null : memberState.selectedWeek, handleWeekClick, locked ? {} : memberState.slotsMap);
+  if (!memberState.selectedWeek || locked) weekDetail.hidden = true;
+  else renderMemberWeekDetail(memberState.selectedWeek);
 }
 
 /* ════════════════════════════════════════
