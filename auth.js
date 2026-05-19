@@ -1,27 +1,24 @@
 /* ═══════════════════════════════════════════
-   auth.js — Login membre (PIN local), login admin, logout
+   auth.js — Login membre (PIN Firebase), login admin, logout
 ══════════════════════════════════════════════ */
 
-import { getMemberByName, getSettings } from './data.js';
+import { getSettings } from './data.js';
 
-const SESSION_KEY   = "pmg_session";
+const SESSION_KEY  = "pmg_session";
 const LAST_USER_KEY = "pmg_last_user";
-const PIN_PREFIX    = "pmg_pin_";
-const PIN_LENGTH    = 4;
+const MEMBER_CACHE = "pmg_member_cache";
+const PIN_LENGTH   = 4;
 
 export let currentMember = null;
 export let isAdmin       = false;
 
-let _pendingMember  = null;
-let _pendingIsReset = false;
+let _pendingMember = null;  /* membre Firebase complet { id, prenom, nom, pin_hash, pin_reset } */
 
-/* ── Hash PIN — synchrone (btoa, suffisant pour 4 chiffres locaux) ──
-   Aucun await, aucun appel réseau. */
-function _hashPIN(pin) {
-  return btoa("pmg-agen:" + pin);
+/* ── SHA-256 — async local, zéro Firebase ── */
+async function _hashPIN(pin) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
-
-function _pinKey(id) { return PIN_PREFIX + id; }
 
 /* ── Session ── */
 
@@ -30,19 +27,18 @@ export function restoreSession(member) {
   isAdmin       = false;
 }
 
-/* ── Connexion effective ──
-   Appelée UNE SEULE FOIS, quand membre trouvé ET PIN validé. */
+/* ── Connexion effective — appelée UNE SEULE FOIS quand membre + PIN validés ── */
+
 function connectMember(member) {
-  console.log("[PMG] 3. connectMember() appelé pour:", member.prenom, member.nom);
-  currentMember   = member;
-  isAdmin         = false;
-  _pendingMember  = null;
-  _pendingIsReset = false;
+  console.log("[PMG] 3. connectMember() :", member.prenom, member.nom);
+  currentMember  = member;
+  isAdmin        = false;
+  _pendingMember = null;
   localStorage.setItem(SESSION_KEY, JSON.stringify({
     id: member.id, prenom: member.prenom, nom: member.nom,
     is_moderator: !!member.is_moderator,
   }));
-  console.log("[PMG] 4. renderMemberScreen() appelé");
+  console.log("[PMG] 4. renderMemberScreen()");
   window.renderMemberScreen();
   window.showScreen("screen-member");
 }
@@ -61,10 +57,9 @@ export function loginAdmin(pwd) {
 /* ── Logout ── */
 
 export function logout() {
-  currentMember   = null;
-  isAdmin         = false;
-  _pendingMember  = null;
-  _pendingIsReset = false;
+  currentMember  = null;
+  isAdmin        = false;
+  _pendingMember = null;
   localStorage.removeItem(SESSION_KEY);
 }
 
@@ -93,7 +88,7 @@ function _goLogin() {
 }
 
 /* ════════════════════════════════════════
-   SCREEN LOGIN (prénom + nom) — synchrone
+   SCREEN LOGIN — UN SEUL appel Firebase
 ════════════════════════════════════════ */
 
 export function bindLoginScreen() {
@@ -111,7 +106,7 @@ export function bindLoginScreen() {
     el.addEventListener("input", () => { if (hint) hint.hidden = true; });
   });
 
-  btn.addEventListener("click", doLogin);
+  btn.addEventListener("click", () => doLogin());
   [inputPrenom, inputNom].forEach(el => {
     el.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
   });
@@ -124,10 +119,8 @@ export function bindLoginScreen() {
     document.getElementById("admin-pwd").focus();
   });
 
-  /* Synchrone — aucun await, aucun spinner */
-  function doLogin() {
+  async function doLogin() {
     errEl.hidden = true;
-
     const prenom = inputPrenom.value.trim();
     const nom    = inputNom.value.trim();
 
@@ -138,29 +131,57 @@ export function bindLoginScreen() {
       return;
     }
 
-    const member = getMemberByName(prenom, nom);
+    /* Feedback visuel discret pendant l'appel réseau */
+    btn.disabled    = true;
+    btn.textContent = "Connexion…";
+
+    /* ── 1. UN SEUL appel Firebase — reçoit id, prenom, nom, tel, pin_hash, pin_reset ── */
+    let member = null;
+    try {
+      member = await Promise.race([
+        window.fbFunctions?.fbFindMember(prenom, nom) ?? Promise.resolve(null),
+        new Promise(r => setTimeout(() => r(null), 8000)),
+      ]);
+    } catch {}
+
+    /* ── Fallback hors ligne : dernier membre mis en cache ── */
     if (!member) {
-      errEl.textContent = "Nom introuvable. Contactez un responsable.";
+      try {
+        const cached = JSON.parse(localStorage.getItem(MEMBER_CACHE) || "null");
+        if (cached &&
+            cached.prenom?.toLowerCase() === prenom.toLowerCase() &&
+            cached.nom?.toLowerCase()    === nom.toLowerCase()) {
+          member = cached;
+          console.log("[PMG] Mode hors ligne — cache utilisé");
+        }
+      } catch {}
+    }
+
+    btn.disabled    = false;
+    btn.textContent = "Se connecter";
+
+    if (!member) {
+      errEl.textContent = "Nom introuvable. Vérifiez votre saisie ou votre connexion.";
       errEl.hidden = false;
       inputPrenom.focus();
       return;
     }
 
-    console.log("[PMG] 1. Membre trouvé:", member.prenom, member.nom);
+    console.log("[PMG] 1. Membre trouvé:", member.prenom, member.nom,
+      "| pin_hash:", member.pin_hash ? "défini" : "absent",
+      "| pin_reset:", member.pin_reset);
 
-    localStorage.setItem(LAST_USER_KEY, JSON.stringify({
-      prenom: member.prenom, nom: member.nom,
-    }));
+    /* ── 2. Mise en cache locale (hors ligne) ── */
+    localStorage.setItem(LAST_USER_KEY, JSON.stringify({ prenom: member.prenom, nom: member.nom }));
+    localStorage.setItem(MEMBER_CACHE, JSON.stringify(member));
     inputPrenom.value = "";
     inputNom.value    = "";
 
-    _pendingMember  = member;
-    _pendingIsReset = false;
+    _pendingMember = member;
 
-    /* Afficher l'écran PIN immédiatement, sans spinner */
-    const storedPin = localStorage.getItem(_pinKey(member.id));
-    if (!storedPin) {
-      console.log("[PMG] → Première connexion, écran choix PIN");
+    /* ── 3. Route selon état du PIN ── */
+    if (!member.pin_hash || member.pin_reset) {
+      console.log("[PMG] → Première connexion ou reset, écran choix PIN");
       _resetChoosePin();
       window.showScreen("screen-choose-pin");
     } else {
@@ -168,34 +189,11 @@ export function bindLoginScreen() {
       _resetPinPad();
       window.showScreen("screen-pin");
     }
-
-    /* Vérification pin_reset Firebase en arrière-plan (après affichage écran) */
-    _checkPinResetBackground(member);
-  }
-}
-
-/* Vérification silencieuse du flag pin_reset — ne modifie l'UI
-   que si _pendingMember est toujours le même membre */
-async function _checkPinResetBackground(member) {
-  try {
-    const fresh = await Promise.race([
-      window.fbFunctions?.fbGetMember(member.id) ?? Promise.resolve(null),
-      new Promise(r => setTimeout(() => r(null), 5000)),
-    ]);
-    if (fresh?.pin_reset === true && _pendingMember?.id === member.id) {
-      console.log("[PMG] pin_reset détecté — redirection choix PIN");
-      _pendingIsReset = true;
-      localStorage.removeItem(_pinKey(member.id));
-      _resetChoosePin();
-      window.showScreen("screen-choose-pin");
-    }
-  } catch (e) {
-    console.warn("[PMG] Erreur check pin_reset:", e);
   }
 }
 
 /* ════════════════════════════════════════
-   SCREEN PIN (pavé numérique) — synchrone
+   SCREEN PIN — vérification locale, zéro Firebase
 ════════════════════════════════════════ */
 
 let _pinEntry = "";
@@ -217,21 +215,23 @@ function _renderPinDots() {
   });
 }
 
-/* Vérification PIN — 100 % locale, 100 % synchrone, zéro Firebase */
-function _verifyPINSync(errEl) {
-  console.log("[PMG] 2. Vérification PIN locale (synchrone)");
-  const storedHash  = localStorage.getItem(_pinKey(_pendingMember.id));
-  const enteredHash = _hashPIN(_pinEntry);
-
-  if (enteredHash === storedHash) {
-    console.log("[PMG] PIN correct");
-    connectMember(_pendingMember);
-  } else {
-    _pinEntry = "";
-    _renderPinDots();
-    errEl.textContent = "PIN incorrect. Réessayez.";
-    errEl.hidden      = false;
-    console.log("[PMG] PIN incorrect");
+/* Vérification PIN : SHA-256 local contre pin_hash Firebase déjà en mémoire. Zéro appel réseau. */
+async function _verifyPINAsync(errEl) {
+  console.log("[PMG] 2. Vérification PIN locale (SHA-256, zéro Firebase)");
+  try {
+    const enteredHash = await _hashPIN(_pinEntry);
+    if (enteredHash === _pendingMember.pin_hash) {
+      console.log("[PMG] PIN correct");
+      connectMember(_pendingMember);
+    } else {
+      _pinEntry = "";
+      _renderPinDots();
+      errEl.textContent = "PIN incorrect. Réessayez.";
+      errEl.hidden      = false;
+      console.log("[PMG] PIN incorrect");
+    }
+  } catch {
+    window.showError();
   }
 }
 
@@ -242,7 +242,6 @@ export function bindPinScreen() {
   const forgotBtn = document.getElementById("pin-forgot-btn");
   const forgotMsg = document.getElementById("pin-forgot-msg");
 
-  /* Pas de async — vérification entièrement synchrone */
   pad.addEventListener("click", e => {
     const btn = e.target.closest("[data-digit]");
     if (!btn) return;
@@ -260,14 +259,13 @@ export function bindPinScreen() {
     _renderPinDots();
 
     if (_pinEntry.length === PIN_LENGTH) {
-      _verifyPINSync(errEl);  /* ← synchrone, pas d'await */
+      _verifyPINAsync(errEl);  /* async SHA-256 local — zéro Firebase */
     }
   });
 
   backBtn.addEventListener("click", () => {
-    _pendingMember  = null;
-    _pendingIsReset = false;
-    _pinEntry = "";
+    _pendingMember = null;
+    _pinEntry      = "";
     _goLogin();
   });
 
@@ -277,7 +275,7 @@ export function bindPinScreen() {
 }
 
 /* ════════════════════════════════════════
-   SCREEN CHOISIR PIN — synchrone
+   SCREEN CHOISIR PIN — sauvegarde dans Firebase
 ════════════════════════════════════════ */
 
 function _resetChoosePin() {
@@ -300,20 +298,18 @@ export function bindChoosePinScreen() {
   const backBtn = document.getElementById("choose-pin-back");
   const errEl   = document.getElementById("choose-pin-error");
 
-  btn.addEventListener("click", doChoosePin);
+  btn.addEventListener("click", () => doChoosePin());
   [input, confirm].forEach(el => {
     el.addEventListener("keydown", e => { if (e.key === "Enter") doChoosePin(); });
   });
 
   backBtn.addEventListener("click", () => {
-    _pendingMember  = null;
-    _pendingIsReset = false;
+    _pendingMember = null;
     _goLogin();
     errEl.hidden = true;
   });
 
-  /* Synchrone — aucun await */
-  function doChoosePin() {
+  async function doChoosePin() {
     const p1 = input.value.trim();
     const p2 = confirm.value.trim();
     errEl.hidden = true;
@@ -331,17 +327,29 @@ export function bindChoosePinScreen() {
       return;
     }
 
-    const hash = _hashPIN(p1);  /* synchrone */
-    localStorage.setItem(_pinKey(_pendingMember.id), hash);
+    btn.disabled = true;
+    try {
+      /* SHA-256 local */
+      const hash = await _hashPIN(p1);
 
-    /* Si reset admin : remettre pin_reset:false dans Firebase (fire-and-forget) */
-    if (_pendingIsReset) {
-      window.fbFunctions?.fbSetPinReset(_pendingMember.id, false);
-      _pendingIsReset = false;
+      /* UN appel Firebase — sauvegarde pin_hash + efface pin_reset */
+      window.fbFunctions?.fbUpdateMember(_pendingMember.id, {
+        pin_hash:  hash,
+        pin_reset: false,
+      });
+
+      /* Mise à jour du cache local */
+      _pendingMember.pin_hash  = hash;
+      _pendingMember.pin_reset = false;
+      localStorage.setItem(MEMBER_CACHE, JSON.stringify(_pendingMember));
+
+      console.log("[PMG] 2. PIN défini et sauvegardé dans Firebase");
+      connectMember(_pendingMember);
+    } catch {
+      window.showError();
+    } finally {
+      btn.disabled = false;
     }
-
-    console.log("[PMG] 2. PIN défini, connexion");
-    connectMember(_pendingMember);
   }
 }
 

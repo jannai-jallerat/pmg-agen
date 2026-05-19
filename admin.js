@@ -438,7 +438,7 @@ function renderAdminMembers() {
       const memberId = pinResetBtn.dataset.resetPin;
       const member   = members.find(m => m.id === memberId);
       if (!confirm(`Réinitialiser le PIN de ${fullName(member)} ?\nLe membre devra choisir un nouveau code à sa prochaine connexion.`)) return;
-      window.fbFunctions?.fbSetPinReset(memberId, true);
+      window.fbFunctions?.fbSetPinReset(memberId);
       window.showToast(`PIN de ${fullName(member)} réinitialisé.`);
       return;
     }

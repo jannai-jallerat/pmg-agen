@@ -62,16 +62,32 @@ async function fbAddMember(member) {
   } catch {}
 }
 
-async function fbGetMember(memberId) {
+/* Recherche membre par prénom+nom (case-insensitive) — retourne le doc complet avec pin_hash */
+async function fbFindMember(prenom, nom) {
   try {
-    const d = await getDoc(doc(db, "members", memberId));
-    return d.exists() ? { id: d.id, ...d.data() } : null;
+    const p    = prenom.toLowerCase().trim();
+    const n    = nom.toLowerCase().trim();
+    const snap = await getDocs(collection(db, "members"));
+    const found = snap.docs.find(d => {
+      const data = d.data();
+      return data.prenom?.toLowerCase().trim() === p &&
+             data.nom?.toLowerCase().trim()    === n;
+    });
+    return found ? { id: found.id, ...found.data() } : null;
   } catch { return null; }
 }
 
-async function fbSetPinReset(memberId, value) {
+/* Mise à jour partielle d'un membre (pin_hash, pin_reset, etc.) */
+async function fbUpdateMember(memberId, fields) {
   try {
-    await setDoc(doc(db, "members", memberId), { pin_reset: value }, { merge: true });
+    await updateDoc(doc(db, "members", memberId), fields);
+  } catch {}
+}
+
+/* Reset PIN admin : efface pin_hash + pose pin_reset:true */
+async function fbSetPinReset(memberId) {
+  try {
+    await updateDoc(doc(db, "members", memberId), { pin_hash: null, pin_reset: true });
   } catch {}
 }
 
@@ -341,7 +357,8 @@ async function fbSeedIfEmpty(defaultMembers, defaultSettings) {
 /* ── Exposition globale (non-bloquant : si ce module échoue, l'appli continue) ── */
 
 window.fbFunctions = {
-  fbGetMembers, fbAddMember, fbDeleteMember, fbGetMember, fbSetPinReset,
+  fbGetMembers, fbAddMember, fbDeleteMember,
+  fbFindMember, fbUpdateMember, fbSetPinReset,
   fbGetSettings, fbUpdateSetting,
   fbGetSlots, fbGenerateMissingSlots, fbCloseSlot, fbOpenSlot, fbUpdateFutureSlotsPlaces,
   fbGetRegistrations, fbAddRegistration, fbDeleteRegistration,
