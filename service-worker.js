@@ -4,7 +4,7 @@
    cache-at-runtime pour le CDN Tabler.
 ══════════════════════════════════════════════ */
 
-const CACHE_NAME  = 'pmg-v14';
+const CACHE_NAME  = 'pmg-v15';
 const TABLER_URL  = 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css';
 
 const PRECACHE_URLS = [
