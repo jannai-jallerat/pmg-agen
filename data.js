@@ -253,13 +253,10 @@ export function generateMissingSlots() {
   const places   = parseInt(settings.places_default) || 2;
   const today    = new Date();
 
-  const months = [
-    { year: today.getFullYear(), month: today.getMonth() },
-    {
-      year:  today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear(),
-      month: (today.getMonth() + 1) % 12,
-    },
-  ];
+  const months = Array.from({ length: 4 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
 
   const allDates = [];
   for (const { year, month } of months) {

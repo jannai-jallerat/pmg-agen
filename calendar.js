@@ -19,23 +19,19 @@ export function isMonthAccessibleForMember(year, month) {
   const today    = new Date();
   const curYear  = today.getFullYear();
   const curMonth = today.getMonth();
+  const day      = today.getDate();
 
-  if (year === curYear && month === curMonth) return true;
-
-  let nextYear = curYear, nextMonth = curMonth + 1;
-  if (nextMonth > 11) { nextMonth = 0; nextYear++; }
-
-  if (year === nextYear && month === nextMonth) {
-    return sameDay(today, lastDayOfMonth(curYear, curMonth));
-  }
+  const offset = (year - curYear) * 12 + (month - curMonth);
+  if (offset < 0)  return false;
+  if (offset <= 2) return true;
+  if (offset === 3) return day >= 15;
   return false;
 }
 
 export function lockedMonthMessage(targetYear, targetMonth) {
-  let prevYear = targetYear, prevMonth = targetMonth - 1;
-  if (prevMonth < 0) { prevMonth = 11; prevYear--; }
-  const lastDay = lastDayOfMonth(prevYear, prevMonth);
-  return "Disponible le " + lastDay.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const today    = new Date();
+  const curMonth = today.getMonth();
+  return `Disponible le 15 ${MONTHS_FR[curMonth]}`;
 }
 
 /* ── Dots calendrier (slotsMap passé en paramètre) ── */
