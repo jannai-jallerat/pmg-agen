@@ -465,14 +465,27 @@ function renderMySlots() {
       ? `${slot.heure_debut.slice(0,5)} – ${slot.heure_fin.slice(0,5)}` : "07:00 – 09:00";
     const lieuLabel = slot.lieu || "Gare d'Agen";
 
+    const coInscrits = slot.coInscrits || [];
+    const coInscritsHTML = coInscrits.length > 0
+      ? coInscrits.map(co => `
+          <div class="co-inscrit-row">
+            <span class="co-inscrit-name">👤 ${co.prenom} ${co.nom}</span>
+            ${co.tel ? `<a href="tel:${co.tel.replace(/\s/g,'')}" class="co-inscrit-tel">📞 ${co.tel}</a>` : ""}
+          </div>`).join("")
+      : `<div class="co-inscrit-empty">Aucun co-équipier pour l'instant</div>`;
+
     card.innerHTML = `
       <div class="my-slot-info">
         <div class="my-slot-date">${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${dateStr}</div>
         <div class="my-slot-meta">${timeLabel} · ${lieuLabel} &nbsp;
           <span class="badge badge-orange">✓ Inscrit</span>
         </div>
+        <div class="my-slot-coinscrits">
+          <div class="co-inscrits-label">Avec vous :</div>
+          ${coInscritsHTML}
+        </div>
       </div>
-      <button class="btn btn-outline-red btn-sm" data-slot-id="${slot.id}">Se désister</button>`;
+      <button class="btn btn-outline-red btn-sm my-slot-desist-btn" data-slot-id="${slot.id}">Se désister</button>`;
     container.appendChild(card);
   });
 

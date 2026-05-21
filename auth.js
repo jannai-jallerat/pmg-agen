@@ -4,9 +4,9 @@
 
 import { getSettings } from './data.js';
 
-const SESSION_KEY  = "pmg_session";
-const LAST_USER_KEY = "pmg_last_user";
-const MEMBER_CACHE = "pmg_member_cache";
+const SESSION_KEY  = "tpl_session";
+const LAST_USER_KEY = "tpl_last_user";
+const MEMBER_CACHE = "tpl_member_cache";
 const PIN_LENGTH   = 4;
 
 export let currentMember = null;
@@ -30,7 +30,7 @@ export function restoreSession(member) {
 /* ── Connexion effective — appelée UNE SEULE FOIS quand membre + PIN validés ── */
 
 function connectMember(member) {
-  console.log("[PMG] 3. connectMember() :", member.prenom, member.nom);
+  console.log("[TPL] 3. connectMember() :", member.prenom, member.nom);
   currentMember  = member;
   isAdmin        = false;
   _pendingMember = null;
@@ -38,7 +38,7 @@ function connectMember(member) {
     id: member.id, prenom: member.prenom, nom: member.nom,
     is_moderator: !!member.is_moderator,
   }));
-  console.log("[PMG] 4. renderMemberScreen()");
+  console.log("[TPL] 4. renderMemberScreen()");
   window.renderMemberScreen();
   window.showScreen("screen-member");
 }
@@ -152,7 +152,7 @@ export function bindLoginScreen() {
             cached.prenom?.toLowerCase() === prenom.toLowerCase() &&
             cached.nom?.toLowerCase()    === nom.toLowerCase()) {
           member = cached;
-          console.log("[PMG] Mode hors ligne — cache utilisé");
+          console.log("[TPL] Mode hors ligne — cache utilisé");
         }
       } catch {}
     }
@@ -167,7 +167,7 @@ export function bindLoginScreen() {
       return;
     }
 
-    console.log("[PMG] 1. Membre trouvé:", member.prenom, member.nom,
+    console.log("[TPL] 1. Membre trouvé:", member.prenom, member.nom,
       "| pin_hash:", member.pin_hash ? "défini" : "absent",
       "| pin_reset:", member.pin_reset);
 
@@ -181,11 +181,11 @@ export function bindLoginScreen() {
 
     /* ── 3. Route selon état du PIN ── */
     if (!member.pin_hash || member.pin_reset) {
-      console.log("[PMG] → Première connexion ou reset, écran choix PIN");
+      console.log("[TPL] → Première connexion ou reset, écran choix PIN");
       _resetChoosePin();
       window.showScreen("screen-choose-pin");
     } else {
-      console.log("[PMG] → Écran PIN");
+      console.log("[TPL] → Écran PIN");
       _resetPinPad();
       window.showScreen("screen-pin");
     }
@@ -217,18 +217,18 @@ function _renderPinDots() {
 
 /* Vérification PIN : SHA-256 local contre pin_hash Firebase déjà en mémoire. Zéro appel réseau. */
 async function _verifyPINAsync(errEl) {
-  console.log("[PMG] 2. Vérification PIN locale (SHA-256, zéro Firebase)");
+  console.log("[TPL] 2. Vérification PIN locale (SHA-256, zéro Firebase)");
   try {
     const enteredHash = await _hashPIN(_pinEntry);
     if (enteredHash === _pendingMember.pin_hash) {
-      console.log("[PMG] PIN correct");
+      console.log("[TPL] PIN correct");
       connectMember(_pendingMember);
     } else {
       _pinEntry = "";
       _renderPinDots();
       errEl.textContent = "PIN incorrect. Réessayez.";
       errEl.hidden      = false;
-      console.log("[PMG] PIN incorrect");
+      console.log("[TPL] PIN incorrect");
     }
   } catch {
     window.showError();
@@ -343,7 +343,7 @@ export function bindChoosePinScreen() {
       _pendingMember.pin_reset = false;
       localStorage.setItem(MEMBER_CACHE, JSON.stringify(_pendingMember));
 
-      console.log("[PMG] 2. PIN défini et sauvegardé dans Firebase");
+      console.log("[TPL] 2. PIN défini et sauvegardé dans Firebase");
       connectMember(_pendingMember);
     } catch {
       window.showError();

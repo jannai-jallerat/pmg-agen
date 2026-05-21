@@ -27,7 +27,7 @@ const db  = getFirestore(app);
 
 function generateInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "PMG-";
+  let code = "TPL-";
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
@@ -119,7 +119,7 @@ async function fbFirstLogin(prenom, nom, inviteCode, pin) {
   await updateDoc(doc(db, "members", memberDoc.id), {
     invite_used: true, pin_hash: pinHash, tokens: [token],
   });
-  localStorage.setItem("pmg_token", token);
+  localStorage.setItem("tpl_token", token);
   return { id: memberDoc.id, ...memberDoc.data(), invite_used: true };
 }
 
@@ -138,7 +138,7 @@ async function fbLoginWithPIN(prenom, nom, pin) {
   const token  = generateToken();
   const tokens = [...(memberDoc.data().tokens || []), token].slice(-5);
   await updateDoc(doc(db, "members", memberDoc.id), { tokens });
-  localStorage.setItem("pmg_token", token);
+  localStorage.setItem("tpl_token", token);
   return { id: memberDoc.id, ...memberDoc.data() };
 }
 

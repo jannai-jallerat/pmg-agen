@@ -1,6 +1,6 @@
 {
   "name": "Présentoir Mobile à la Gare",
-  "short_name": "PMG",
+  "short_name": "TPL",
   "description": "Gestion des créneaux de service à la gare d'Agen",
   "start_url": "./index.html",
   "display": "standalone",

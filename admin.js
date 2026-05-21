@@ -481,7 +481,7 @@ function adminDeleteMember(member) {
 
 export function bindAddMemberModal() {
   document.getElementById("add-member-btn").addEventListener("click", () => {
-    ["new-member-prenom","new-member-nom","new-member-tel","new-member-dob"].forEach(id => {
+    ["new-member-prenom","new-member-nom","new-member-tel"].forEach(id => {
       document.getElementById(id).value = "";
     });
     document.getElementById("add-member-error").hidden = true;
@@ -499,11 +499,10 @@ export function bindAddMemberModal() {
   });
 
   document.getElementById("modal-member-confirm").addEventListener("click", () => {
-    const prenom         = document.getElementById("new-member-prenom").value.trim();
-    const nom            = document.getElementById("new-member-nom").value.trim();
-    const tel            = document.getElementById("new-member-tel").value.trim();
-    const date_naissance = document.getElementById("new-member-dob").value.trim() || null;
-    const errEl          = document.getElementById("add-member-error");
+    const prenom = document.getElementById("new-member-prenom").value.trim();
+    const nom    = document.getElementById("new-member-nom").value.trim();
+    const tel    = document.getElementById("new-member-tel").value.trim();
+    const errEl  = document.getElementById("add-member-error");
     errEl.hidden = true;
 
     if (!prenom || !nom) {
@@ -512,7 +511,7 @@ export function bindAddMemberModal() {
     }
 
     try {
-      addMember({ prenom, nom, tel, date_naissance });
+      addMember({ prenom, nom, tel });
       document.getElementById("modal-add-member").hidden = true;
       renderAdminMembers();
       window.showToast(`${prenom} ${nom} ajouté.`);
@@ -883,8 +882,8 @@ function renderAdminStats() {
 function _computeMonthSlots(year, month) {
   const first = dateToKey(new Date(year, month, 1));
   const last  = dateToKey(lastDayOfMonth(year, month));
-  const slots = _load("pmg_slots", []).filter(s => s.date >= first && s.date <= last);
-  const regs  = _load("pmg_registrations", []);
+  const slots = _load("tpl_slots", []).filter(s => s.date >= first && s.date <= last);
+  const regs  = _load("tpl_registrations", []);
   return slots.map(s => ({
     date:   s.date,
     filled: regs.some(r => r.slot_id === s.id),
@@ -896,8 +895,8 @@ function _computeMonthSlots(year, month) {
 function _computeYearSlots(year) {
   const first = `${year}-01-01`;
   const last  = `${year}-12-31`;
-  const slots = _load("pmg_slots", []).filter(s => s.date >= first && s.date <= last);
-  const regs  = _load("pmg_registrations", []);
+  const slots = _load("tpl_slots", []).filter(s => s.date >= first && s.date <= last);
+  const regs  = _load("tpl_registrations", []);
   return slots.map(s => ({
     date:   s.date,
     month:  keyToDate(s.date).getMonth(),

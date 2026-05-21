@@ -22,7 +22,7 @@ export function genId() {
 
 function _genInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "PMG-";
+  let code = "TPL-";
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
@@ -43,15 +43,15 @@ export function _save(key, val) {
 /* ── Initialisation des données de démonstration ── */
 
 export function initDemoData() {
-  if (!localStorage.getItem("pmg_members")) {
-    _save("pmg_members", DEFAULT_MEMBERS.map(m => ({
+  if (!localStorage.getItem("tpl_members")) {
+    _save("tpl_members", DEFAULT_MEMBERS.map(m => ({
       ...m, id: genId(),
     })));
   }
-  if (!localStorage.getItem("pmg_settings"))      _save("pmg_settings",      DEFAULT_SETTINGS);
-  if (!localStorage.getItem("pmg_slots"))         _save("pmg_slots",         []);
-  if (!localStorage.getItem("pmg_registrations")) _save("pmg_registrations", []);
-  if (!localStorage.getItem("pmg_quotas"))        _save("pmg_quotas",        {});
+  if (!localStorage.getItem("tpl_settings"))      _save("tpl_settings",      DEFAULT_SETTINGS);
+  if (!localStorage.getItem("tpl_slots"))         _save("tpl_slots",         []);
+  if (!localStorage.getItem("tpl_registrations")) _save("tpl_registrations", []);
+  if (!localStorage.getItem("tpl_quotas"))        _save("tpl_quotas",        {});
 }
 
 /* ── Helpers date ── */
@@ -126,53 +126,53 @@ export function getAvatarBgColor(idx) {
 /* ── Membres ── */
 
 export function getMembers() {
-  return _load("pmg_members", []).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  return _load("tpl_members", []).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
 }
 
 export function getMemberById(id) {
-  return _load("pmg_members", []).find(m => m.id === id) ?? null;
+  return _load("tpl_members", []).find(m => m.id === id) ?? null;
 }
 
 export function getMemberByName(prenom, nom) {
   const p = prenom.toLowerCase().trim();
   const n = nom.toLowerCase().trim();
-  return _load("pmg_members", []).find(m =>
+  return _load("tpl_members", []).find(m =>
     m.prenom.toLowerCase().trim() === p &&
     m.nom.toLowerCase().trim()    === n
   ) ?? null;
 }
 
 export function addMember({ prenom, nom, tel }) {
-  const members = _load("pmg_members", []);
+  const members = _load("tpl_members", []);
   const member  = {
     id: genId(), prenom, nom, tel: tel || "", is_moderator: false,
   };
   members.push(member);
-  _save("pmg_members", members);
+  _save("tpl_members", members);
   window.fbFunctions?.fbAddMember(member);
   return member;
 }
 
 export function updateMemberLocalAuth(id, fields) {
-  const members = _load("pmg_members", []);
+  const members = _load("tpl_members", []);
   const idx     = members.findIndex(m => m.id === id);
   if (idx < 0) return;
   members[idx] = { ...members[idx], ...fields };
-  _save("pmg_members", members);
+  _save("tpl_members", members);
 }
 
 export function deleteMember(id) {
-  _save("pmg_members",       _load("pmg_members", []).filter(m => m.id !== id));
-  _save("pmg_registrations", _load("pmg_registrations", []).filter(r => r.member_id !== id));
-  const quotas = _load("pmg_quotas", {});
+  _save("tpl_members",       _load("tpl_members", []).filter(m => m.id !== id));
+  _save("tpl_registrations", _load("tpl_registrations", []).filter(r => r.member_id !== id));
+  const quotas = _load("tpl_quotas", {});
   delete quotas[id];
-  _save("pmg_quotas", quotas);
+  _save("tpl_quotas", quotas);
   window.fbFunctions?.fbDeleteMember(id);
 }
 
 export function setModerator(memberId, value) {
-  _save("pmg_members",
-    _load("pmg_members", []).map(m =>
+  _save("tpl_members",
+    _load("tpl_members", []).map(m =>
       m.id === memberId ? { ...m, is_moderator: value } : m
     )
   );
@@ -181,7 +181,7 @@ export function setModerator(memberId, value) {
 }
 
 export function importMembers(members) {
-  const existing    = _load("pmg_members", []);
+  const existing    = _load("tpl_members", []);
   const existingSet = new Set(
     existing.map(m => `${m.prenom.toLowerCase().trim()}|${m.nom.toLowerCase().trim()}`)
   );
@@ -194,7 +194,7 @@ export function importMembers(members) {
     tel: (m.tel || "").trim(), is_moderator: false,
   }));
   newMembers.forEach(m => existing.push(m));
-  _save("pmg_members", existing);
+  _save("tpl_members", existing);
   newMembers.forEach(m => window.fbFunctions?.fbAddMember(m));
   return { imported: toInsert.length, ignored: members.length - toInsert.length };
 }
@@ -202,27 +202,27 @@ export function importMembers(members) {
 /* ── Paramètres ── */
 
 export function getSettings() {
-  return _load("pmg_settings", DEFAULT_SETTINGS);
+  return _load("tpl_settings", DEFAULT_SETTINGS);
 }
 
 export function updateSetting(key, value) {
   const s = getSettings();
   s[key] = String(value);
-  _save("pmg_settings", s);
+  _save("tpl_settings", s);
   window.fbFunctions?.fbUpdateSetting(key, value);
 }
 
 export function patchSlotFromFirebase(date, fields) {
-  const slots = _load("pmg_slots", []);
+  const slots = _load("tpl_slots", []);
   const idx   = slots.findIndex(s => s.date === date);
   if (idx < 0) return;
   slots[idx] = { ...slots[idx], ...fields };
-  _save("pmg_slots", slots);
+  _save("tpl_slots", slots);
 }
 
 export function updateFutureSlotsPlaces(places) {
   const today = dateToKey(new Date());
-  const slots = _load("pmg_slots", []);
+  const slots = _load("tpl_slots", []);
   let count = 0;
   const futureDates = [];
   const updated = slots.map(s => {
@@ -233,7 +233,7 @@ export function updateFutureSlotsPlaces(places) {
     }
     return s;
   });
-  _save("pmg_slots", updated);
+  _save("tpl_slots", updated);
   if (futureDates.length > 0) {
     window.fbFunctions?.fbUpdateFutureSlotsPlaces(places, futureDates);
   }
@@ -243,7 +243,7 @@ export function updateFutureSlotsPlaces(places) {
 /* ── Créneaux ── */
 
 export function getSlots(dateDebut, dateFin) {
-  return _load("pmg_slots", [])
+  return _load("tpl_slots", [])
     .filter(s => s.date >= dateDebut && s.date <= dateFin)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -273,7 +273,7 @@ export function generateMissingSlots() {
 
   if (allDates.length === 0) return;
 
-  const existing      = _load("pmg_slots", []);
+  const existing      = _load("tpl_slots", []);
   const existingDates = new Set(existing.map(s => s.date));
   const missing       = allDates.filter(d => !existingDates.has(d));
   if (missing.length === 0) return;
@@ -283,23 +283,23 @@ export function generateMissingSlots() {
     heure_debut: null, heure_fin: null, lieu: null,
     is_closed: false, close_reason: null,
   }));
-  _save("pmg_slots", existing);
+  _save("tpl_slots", existing);
   window.fbFunctions?.fbGenerateMissingSlots(missing, places);
 }
 
 export function closeSlot(slotId, reason) {
-  const slots = _load("pmg_slots", []);
+  const slots = _load("tpl_slots", []);
   const slot  = slots.find(s => s.id === slotId);
-  _save("pmg_slots", slots.map(s =>
+  _save("tpl_slots", slots.map(s =>
     s.id === slotId ? { ...s, is_closed: true, close_reason: reason || null } : s
   ));
   if (slot) window.fbFunctions?.fbCloseSlot(slot.date, reason || null);
 }
 
 export function openSlot(slotId) {
-  const slots = _load("pmg_slots", []);
+  const slots = _load("tpl_slots", []);
   const slot  = slots.find(s => s.id === slotId);
-  _save("pmg_slots", slots.map(s =>
+  _save("tpl_slots", slots.map(s =>
     s.id === slotId ? { ...s, is_closed: false, close_reason: null } : s
   ));
   if (slot) window.fbFunctions?.fbOpenSlot(slot.date);
@@ -308,12 +308,12 @@ export function openSlot(slotId) {
 /* ── Inscriptions ── */
 
 export function addRegistration(slotId, memberId) {
-  const regs   = _load("pmg_registrations", []);
+  const regs   = _load("tpl_registrations", []);
   const member = getMemberById(memberId);
-  const slot   = _load("pmg_slots", []).find(s => s.id === slotId);
+  const slot   = _load("tpl_slots", []).find(s => s.id === slotId);
   const reg    = { id: genId(), slot_id: slotId, member_id: memberId, registered_at: new Date().toISOString() };
   regs.push(reg);
-  _save("pmg_registrations", regs);
+  _save("tpl_registrations", regs);
   if (slot && member) {
     window.fbFunctions?.fbAddRegistration({
       id:            reg.id,
@@ -329,9 +329,9 @@ export function addRegistration(slotId, memberId) {
 }
 
 export function deleteRegistration(slotId, memberId) {
-  const regs = _load("pmg_registrations", []);
+  const regs = _load("tpl_registrations", []);
   const reg  = regs.find(r => r.slot_id === slotId && r.member_id === memberId);
-  _save("pmg_registrations", regs.filter(r => !(r.slot_id === slotId && r.member_id === memberId)));
+  _save("tpl_registrations", regs.filter(r => !(r.slot_id === slotId && r.member_id === memberId)));
   if (reg) window.fbFunctions?.fbDeleteRegistration(reg.id);
 }
 
@@ -339,8 +339,8 @@ export function getSlotsWithRegistrations(dateDebut, dateFin) {
   const slots = getSlots(dateDebut, dateFin);
   if (slots.length === 0) return {};
 
-  const members  = _load("pmg_members", []);
-  const regs     = _load("pmg_registrations", []);
+  const members  = _load("tpl_members", []);
+  const regs     = _load("tpl_registrations", []);
   const slotsMap = {};
 
   for (const slot of slots) {
@@ -357,13 +357,27 @@ export function getSlotsWithRegistrations(dateDebut, dateFin) {
 /* ── Inscriptions à venir (membre) ── */
 
 export function getMemberUpcomingRegistrations(memberId) {
-  const today = dateToKey(new Date());
-  const regs  = _load("pmg_registrations", []).filter(r => r.member_id === memberId);
-  const slots = _load("pmg_slots", []);
-  return regs
+  const today   = dateToKey(new Date());
+  const allRegs = _load("tpl_registrations", []);
+  const myRegs  = allRegs.filter(r => r.member_id === memberId);
+  const slots   = _load("tpl_slots", []);
+  const members = _load("tpl_members", []);
+  return myRegs
     .map(r => {
       const slot = slots.find(s => s.id === r.slot_id);
-      return slot ? { registrationId: r.id, ...slot } : null;
+      if (!slot) return null;
+      const coInscrits = allRegs
+        .filter(cr => cr.slot_id === r.slot_id && cr.member_id !== memberId)
+        .map(cr => {
+          const m = members.find(mb => mb.id === cr.member_id) || {};
+          return {
+            id:     cr.member_id,
+            prenom: m.prenom || cr.member_prenom || "?",
+            nom:    m.nom    || cr.member_nom    || "",
+            tel:    m.tel    || cr.member_tel    || "",
+          };
+        });
+      return { registrationId: r.id, ...slot, coInscrits };
     })
     .filter(r => r && r.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -379,13 +393,13 @@ export const QUOTA_MAX = 2;
 
 export function getQuotaState(memberId) {
   const now    = new Date();
-  const quotas = _load("pmg_quotas", {});
+  const quotas = _load("tpl_quotas", {});
   let   q      = quotas[memberId] || { count: 0, next_reset: null };
 
   if (q.next_reset && now >= new Date(q.next_reset)) {
     q = { count: 0, next_reset: null };
     quotas[memberId] = q;
-    _save("pmg_quotas", quotas);
+    _save("tpl_quotas", quotas);
   }
 
   const tomorrow = new Date(now);
@@ -406,21 +420,21 @@ export function incrementQuota(memberId) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(7, 0, 0, 0);
 
-  const quotas   = _load("pmg_quotas", {});
+  const quotas   = _load("tpl_quotas", {});
   const cur      = quotas[memberId] || { count: 0, next_reset: null };
   const newQuota = { count: cur.count + 1, next_reset: tomorrow.toISOString() };
   quotas[memberId] = newQuota;
-  _save("pmg_quotas", quotas);
+  _save("tpl_quotas", quotas);
   window.fbFunctions?.fbIncrementQuota(memberId, newQuota.count, newQuota.next_reset);
   return true;
 }
 
 export function decrementQuota(memberId) {
-  const quotas   = _load("pmg_quotas", {});
+  const quotas   = _load("tpl_quotas", {});
   const cur      = quotas[memberId];
   if (!cur) return;
   const newCount = Math.max(0, cur.count - 1);
   quotas[memberId] = { ...cur, count: newCount };
-  _save("pmg_quotas", quotas);
+  _save("tpl_quotas", quotas);
   window.fbFunctions?.fbDecrementQuota(memberId, newCount);
 }

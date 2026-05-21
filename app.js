@@ -118,11 +118,11 @@ async function syncFromFirebase() {
     }
 
     if (members.length > 0) {
-      localStorage.setItem("pmg_members", JSON.stringify(members));
+      localStorage.setItem("tpl_members", JSON.stringify(members));
     }
     if (Object.keys(settings).length > 0) {
-      const cur = JSON.parse(localStorage.getItem("pmg_settings") || "{}");
-      localStorage.setItem("pmg_settings", JSON.stringify({ ...cur, ...settings }));
+      const cur = JSON.parse(localStorage.getItem("tpl_settings") || "{}");
+      localStorage.setItem("tpl_settings", JSON.stringify({ ...cur, ...settings }));
     }
   } catch {}
 }
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
   try { generateMissingSlots(); } catch (e) { console.warn("generateMissingSlots:", e); }
 
   /* 3. Restauration de session */
-  const saved = localStorage.getItem("pmg_session");
+  const saved = localStorage.getItem("tpl_session");
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -157,13 +157,13 @@ document.addEventListener("DOMContentLoaded", () => {
         renderMemberScreen();
         showScreen("screen-member");
       } else {
-        localStorage.removeItem("pmg_session");
+        localStorage.removeItem("tpl_session");
         showScreen("screen-login");
         document.getElementById("login-prenom").focus();
       }
     } catch (e) {
       restoreSession(null);
-      localStorage.removeItem("pmg_session");
+      localStorage.removeItem("tpl_session");
       showScreen("screen-login");
       document.getElementById("login-prenom").focus();
     }
