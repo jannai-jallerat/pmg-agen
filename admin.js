@@ -839,8 +839,9 @@ const statsState = {
   month: new Date().getMonth(),
 };
 
-let _monthChart = null;
-let _yearChart  = null;
+let _monthChart    = null;
+let _yearChart     = null;
+let _fbStatsCache  = null; // { year, regs: [{slot_date, ...}] }
 
 export function bindAdminStats() {
   document.getElementById("stats-prev-month").addEventListener("click", () => shiftStatsMonth(-1));
@@ -855,17 +856,47 @@ function shiftStatsMonth(delta) {
 }
 
 function renderAdminStats() {
+  _renderStatsUI();           // rendu immédiat avec données locales
+  _syncStatsFromFirebase();   // async : re-render avec données Firebase fraîches
+}
+
+/* ── Sync Firebase pour les stats (fire-and-forget) ── */
+
+async function _syncStatsFromFirebase() {
+  const { year } = statsState;
+  if (!window.fbFunctions?.fbGetRegistrationsPeriod) return;
+
+  // Cache valide pour l'année en cours → re-render direct sans nouvel appel
+  if (_fbStatsCache?.year === year) {
+    _renderStatsUI();
+    return;
+  }
+
+  const dateStart = `${year}-01-01`;
+  const dateEnd   = `${year}-12-31`;
+  console.log("[TPL Stats] Sync Firebase — période:", dateStart, "→", dateEnd);
+
+  try {
+    const regs = await window.fbFunctions.fbGetRegistrationsPeriod(dateStart, dateEnd);
+    console.log("[TPL Stats] Registrations Firebase reçues:", regs.length);
+    _fbStatsCache = { year, regs };
+    _renderStatsUI();
+  } catch (e) {
+    console.warn("[TPL Stats] Sync Firebase échouée, données locales utilisées:", e);
+  }
+}
+
+/* ── Rendu des stats (KPI + graphiques) ── */
+
+function _renderStatsUI() {
   const { year, month } = statsState;
 
-  /* Label navigation */
   const label = `${MONTHS_LONG[month].charAt(0).toUpperCase()}${MONTHS_LONG[month].slice(1)} ${year}`;
   document.getElementById("stats-month-label").textContent = label;
 
-  /* Données du mois sélectionné */
   const monthData  = _computeMonthSlots(year, month);
   const weekGroups = _groupByWeek(monthData, year, month);
 
-  /* KPI */
   const totalMonth  = monthData.length;
   const filledMonth = monthData.filter(s => s.filled).length;
   const emptyMonth  = totalMonth - filledMonth;
@@ -877,17 +908,15 @@ function renderAdminStats() {
     return best;
   }, null);
 
-  document.getElementById("stats-total-month").textContent  = totalMonth || "—";
-  document.getElementById("stats-fill-rate").textContent    = totalMonth ? `${fillRate} %` : "—";
-  document.getElementById("stats-best-week").textContent    = bestWeek ? `${bestWeek.label} (${bestWeek.rate} %)` : "—";
-  document.getElementById("stats-empty-count").textContent  = totalMonth ? emptyMonth : "—";
+  document.getElementById("stats-total-month").textContent = totalMonth || "—";
+  document.getElementById("stats-fill-rate").textContent   = totalMonth ? `${fillRate} %` : "—";
+  document.getElementById("stats-best-week").textContent   = bestWeek ? `${bestWeek.label} (${bestWeek.rate} %)` : "—";
+  document.getElementById("stats-empty-count").textContent = totalMonth ? emptyMonth : "—";
 
-  /* Graphique mensuel */
   _renderMonthChart(weekGroups, label);
 
-  /* Données de l'année entière */
-  const yearData      = _computeYearSlots(year);
-  const monthGroups   = _groupByMonth(yearData);
+  const yearData    = _computeYearSlots(year);
+  const monthGroups = _groupByMonth(yearData);
   _renderYearChart(monthGroups, year);
 }
 
@@ -896,12 +925,25 @@ function renderAdminStats() {
 function _computeMonthSlots(year, month) {
   const first = dateToKey(new Date(year, month, 1));
   const last  = dateToKey(lastDayOfMonth(year, month));
+
+  // Slots depuis localStorage (date toujours cohérente)
   const slots = _load("tpl_slots", []).filter(s => s.date >= first && s.date <= last);
-  const regs  = _load("tpl_registrations", []);
-  return slots.map(s => ({
+
+  // Registrations : Firebase (jointure par slot_date) si cache dispo, sinon local (slot_id)
+  const useFirebase = _fbStatsCache?.year === year;
+  const regs        = useFirebase ? _fbStatsCache.regs : _load("tpl_registrations", []);
+
+  console.log(`[TPL Stats] Période: ${first} → ${last} | slots: ${slots.length} | regs ${useFirebase ? "Firebase" : "local"}: ${regs.length}`);
+
+  const result = slots.map(s => ({
     date:   s.date,
-    filled: regs.some(r => r.slot_id === s.id),
+    filled: useFirebase
+      ? regs.some(r => r.slot_date === s.date)   // jointure par date (Firebase)
+      : regs.some(r => r.slot_id  === s.id),      // jointure par UUID local
   }));
+
+  console.log(`[TPL Stats] Slots avec inscrits: ${result.filter(s => s.filled).length} / ${result.length}`);
+  return result;
 }
 
 /* ── Calcul des slots de l'année avec état rempli/vide ── */
@@ -909,12 +951,19 @@ function _computeMonthSlots(year, month) {
 function _computeYearSlots(year) {
   const first = `${year}-01-01`;
   const last  = `${year}-12-31`;
-  const slots = _load("tpl_slots", []).filter(s => s.date >= first && s.date <= last);
-  const regs  = _load("tpl_registrations", []);
+
+  const slots       = _load("tpl_slots", []).filter(s => s.date >= first && s.date <= last);
+  const useFirebase = _fbStatsCache?.year === year;
+  const regs        = useFirebase ? _fbStatsCache.regs : _load("tpl_registrations", []);
+
+  console.log(`[TPL Stats] Année ${year} | slots: ${slots.length} | regs ${useFirebase ? "Firebase" : "local"}: ${regs.length}`);
+
   return slots.map(s => ({
     date:   s.date,
     month:  keyToDate(s.date).getMonth(),
-    filled: regs.some(r => r.slot_id === s.id),
+    filled: useFirebase
+      ? regs.some(r => r.slot_date === s.date)
+      : regs.some(r => r.slot_id  === s.id),
   }));
 }
 
@@ -965,6 +1014,7 @@ function _renderMonthChart(weekGroups, monthLabel) {
   const filled  = weekGroups.map(w => w.filled);
   const empty   = weekGroups.map(w => w.empty);
   const rates   = weekGroups.map(w => w.total > 0 ? w.rate : null);
+  console.log(`[TPL Stats] Graphique mensuel (${monthLabel}) :`, { filled, empty, rates });
 
   _monthChart = new Chart(ctx, {
     data: {
@@ -1020,6 +1070,7 @@ function _renderYearChart(monthGroups, year) {
   const filled = monthGroups.map(m => m.filled);
   const empty  = monthGroups.map(m => m.empty);
   const rates  = monthGroups.map(m => m.total > 0 ? m.rate : null);
+  console.log(`[TPL Stats] Graphique annuel (${year}) :`, { filled, empty, rates });
 
   _yearChart = new Chart(ctx, {
     data: {

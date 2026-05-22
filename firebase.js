@@ -308,6 +308,23 @@ function fbListenWeek(dateDebut, dateFin, callback) {
   }, () => {});
 }
 
+async function fbGetRegistrationsPeriod(dateStart, dateEnd) {
+  try {
+    const q = query(
+      collection(db, "registrations"),
+      where("slot_date", ">=", dateStart),
+      where("slot_date", "<=", dateEnd),
+      orderBy("slot_date"),
+    );
+    const snap = await getDocs(q);
+    console.log("[TPL Stats] fbGetRegistrationsPeriod:", snap.size, "regs pour", dateStart, "→", dateEnd);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn("[TPL Stats] fbGetRegistrationsPeriod erreur:", e);
+    return [];
+  }
+}
+
 async function fbDeleteRegistration(id) {
   try {
     console.log("[TPL] fbDeleteRegistration — doc id:", id);
@@ -367,7 +384,7 @@ window.fbFunctions = {
   fbFindMember, fbUpdateMember, fbSetPinReset,
   fbGetSettings, fbUpdateSetting,
   fbGetSlots, fbGenerateMissingSlots, fbCloseSlot, fbOpenSlot, fbUpdateFutureSlotsPlaces,
-  fbGetRegistrations, fbAddRegistration, fbDeleteRegistration,
+  fbGetRegistrations, fbGetRegistrationsPeriod, fbAddRegistration, fbDeleteRegistration,
   fbListenDay, fbListenWeek,
   fbGetQuota, fbIncrementQuota, fbDecrementQuota,
   fbSeedIfEmpty,
