@@ -309,7 +309,13 @@ function fbListenWeek(dateDebut, dateFin, callback) {
 }
 
 async function fbDeleteRegistration(id) {
-  try { await deleteDoc(doc(db, "registrations", id)); } catch {}
+  try {
+    console.log("[TPL] fbDeleteRegistration — doc id:", id);
+    await deleteDoc(doc(db, "registrations", id));
+    console.log("[TPL] fbDeleteRegistration — supprimé ✓");
+  } catch (e) {
+    console.error("[TPL] fbDeleteRegistration — erreur:", e);
+  }
 }
 
 /* ── Quotas (doc ID = member_id) ── */

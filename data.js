@@ -326,10 +326,16 @@ export function addRegistration(slotId, memberId) {
 }
 
 export function deleteRegistration(slotId, memberId) {
+  if (!memberId) {
+    console.error("[TPL] deleteRegistration: memberId manquant !");
+    return;
+  }
   const regs = _load("tpl_registrations", []);
   const reg  = regs.find(r => r.slot_id === slotId && r.member_id === memberId);
+  console.log("[TPL] deleteRegistration — slot:", slotId, "| member:", memberId, "| reg trouvé:", reg?.id ?? "AUCUN");
   _save("tpl_registrations", regs.filter(r => !(r.slot_id === slotId && r.member_id === memberId)));
   if (reg) window.fbFunctions?.fbDeleteRegistration(reg.id);
+  else console.warn("[TPL] deleteRegistration: aucune inscription locale trouvée, Firebase non appelé");
 }
 
 export function getSlotsWithRegistrations(dateDebut, dateFin) {

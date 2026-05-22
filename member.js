@@ -411,6 +411,12 @@ function doSignup(slotId) {
 
 function doWithdraw(slotId) {
   const member = currentMember;
+  if (!member?.id) {
+    console.error("[TPL] doWithdraw: currentMember.id manquant !");
+    window.showError();
+    return;
+  }
+  console.log("[TPL] Désistement slot:", slotId, "| Member ID:", member.id);
   try {
     deleteRegistration(slotId, member.id);
     decrementQuota(member.id);
@@ -418,6 +424,7 @@ function doWithdraw(slotId) {
     _refreshMemberCalendar();
     renderQuotaBar();
   } catch (e) {
+    console.error("[TPL] Erreur désistement:", e);
     window.showError();
   }
 }
