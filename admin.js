@@ -548,11 +548,13 @@ export function bindInviteCodeModal() {
 function renderAdminSettings() {
   adminState.settings = getSettings();
   const s = adminState.settings;
-  document.getElementById("banner-text").value  = s.banner || "";
-  document.getElementById("places-input").value = s.places_default || 2;
-  document.getElementById("new-pwd").value      = "";
-  document.getElementById("confirm-pwd").value  = "";
-  document.getElementById("pwd-error").hidden   = true;
+  document.getElementById("banner-text").value   = s.banner || "";
+  document.getElementById("places-input").value  = s.places_default || 2;
+  document.getElementById("urgence-jc-tel").value = s.urgence_jc_tel || "";
+  document.getElementById("urgence-kb-tel").value = s.urgence_kb_tel || "";
+  document.getElementById("new-pwd").value       = "";
+  document.getElementById("confirm-pwd").value   = "";
+  document.getElementById("pwd-error").hidden    = true;
 }
 
 export function bindAdminSettings() {
@@ -595,6 +597,18 @@ export function bindAdminSettings() {
       const count = updateFutureSlotsPlaces(val);
       adminState.settings.places_default = String(val);
       window.showToast(`${count} créneau${count > 1 ? "x" : ""} mis à jour avec ${val} place${val > 1 ? "s" : ""}.`);
+    } catch { window.showError(); }
+  });
+
+  document.getElementById("save-urgence-btn").addEventListener("click", () => {
+    const jcTel = document.getElementById("urgence-jc-tel").value.trim();
+    const kbTel = document.getElementById("urgence-kb-tel").value.trim();
+    try {
+      updateSetting("urgence_jc_tel", jcTel);
+      updateSetting("urgence_kb_tel", kbTel);
+      adminState.settings.urgence_jc_tel = jcTel;
+      adminState.settings.urgence_kb_tel = kbTel;
+      window.showToast("Contacts d'urgence enregistrés.");
     } catch { window.showError(); }
   });
 }

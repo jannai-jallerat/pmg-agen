@@ -195,9 +195,11 @@ function switchMemberTab(tabId) {
   });
   document.getElementById("tab-calendar").hidden   = (tabId !== "calendar");
   document.getElementById("tab-my-slots").hidden   = (tabId !== "my-slots");
+  document.getElementById("tab-urgences").hidden   = (tabId !== "urgences");
   document.getElementById("tab-moderation").hidden = (tabId !== "moderation");
 
   if (tabId === "my-slots")   renderMySlots();
+  if (tabId === "urgences")   renderUrgences();
   if (tabId === "moderation") renderModCalendar();
   if (tabId === "calendar" && memberState.selectedWeek) setupMemberWeekListeners(memberState.selectedWeek);
 }
@@ -503,6 +505,56 @@ function renderMySlots() {
     doWithdraw(btn.dataset.slotId);
     renderMySlots();
   });
+}
+
+/* ════════════════════════════════════════
+   URGENCES
+════════════════════════════════════════ */
+
+function renderUrgences() {
+  const settings = getSettings();
+  const jcTel    = (settings.urgence_jc_tel || "").trim();
+  const kbTel    = (settings.urgence_kb_tel || "").trim();
+  const wrap     = document.getElementById("urgences-list");
+  wrap.innerHTML = "";
+
+  const intro = document.createElement("p");
+  intro.className   = "urgences-intro";
+  intro.textContent = "À contacter en cas d'urgence liée au présentoir";
+  wrap.appendChild(intro);
+
+  const contacts = [
+    { icon: "👤", name: "Jean-Christophe Arcamon", role: "Responsable de prédication", tel: jcTel,  type: "normal" },
+    { icon: "👤", name: "Kailash Bhunsee",         role: "Responsable de prédication", tel: kbTel,  type: "normal" },
+    { icon: "🚒", name: "Pompiers",                 role: null,                         tel: "18",   type: "fire"   },
+    { icon: "👮", name: "Police",                   role: null,                         tel: "17",   type: "police" },
+  ];
+
+  const grid = document.createElement("div");
+  grid.className = "urgences-grid";
+
+  for (const c of contacts) {
+    const card = document.createElement("div");
+    card.className = `urgence-card urgence-card-${c.type}`;
+
+    const hasNumber = !!c.tel;
+    const telHref   = hasNumber ? `tel:${c.tel.replace(/\s/g, "")}` : null;
+
+    card.innerHTML = `
+      <div class="urgence-icon">${c.icon}</div>
+      <div class="urgence-info">
+        <div class="urgence-name">${c.name}</div>
+        ${c.role ? `<div class="urgence-role">${c.role}</div>` : ""}
+        <div class="urgence-tel ${hasNumber ? "" : "urgence-tel-empty"}">${hasNumber ? c.tel : "Numéro non renseigné"}</div>
+      </div>
+      ${hasNumber
+        ? `<a href="${telHref}" class="urgence-call-btn urgence-call-${c.type}">📞 Appeler</a>`
+        : `<span class="urgence-call-btn urgence-call-disabled">📞 Appeler</span>`}`;
+
+    grid.appendChild(card);
+  }
+
+  wrap.appendChild(grid);
 }
 
 /* ════════════════════════════════════════
