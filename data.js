@@ -332,10 +332,15 @@ export function deleteRegistration(slotId, memberId) {
   }
   const regs = _load("tpl_registrations", []);
   const reg  = regs.find(r => r.slot_id === slotId && r.member_id === memberId);
-  console.log("[TPL] deleteRegistration — slot:", slotId, "| member:", memberId, "| reg trouvé:", reg?.id ?? "AUCUN");
+  const slot = _load("tpl_slots", []).find(s => s.id === slotId);
+  const slotDate = slot?.date ?? reg?.slot_date;
+  console.log("[TPL] deleteRegistration — slot:", slotId, "| date:", slotDate, "| member:", memberId, "| reg trouvé:", reg?.id ?? "AUCUN");
   _save("tpl_registrations", regs.filter(r => !(r.slot_id === slotId && r.member_id === memberId)));
-  if (reg) window.fbFunctions?.fbDeleteRegistration(reg.id);
-  else console.warn("[TPL] deleteRegistration: aucune inscription locale trouvée, Firebase non appelé");
+  if (slotDate) {
+    window.fbFunctions?.fbDeleteRegistration(slotDate, memberId);
+  } else {
+    console.warn("[TPL] deleteRegistration: slotDate introuvable, Firebase non appelé");
+  }
 }
 
 export function getSlotsWithRegistrations(dateDebut, dateFin) {

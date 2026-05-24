@@ -325,13 +325,31 @@ async function fbGetRegistrationsPeriod(dateStart, dateEnd) {
   }
 }
 
-async function fbDeleteRegistration(id) {
+async function fbDeleteRegistration(slotDate, memberId) {
+  if (!slotDate || !memberId) {
+    console.error("[TPL] ERREUR: paramètres manquants", { slotDate, memberId });
+    return false;
+  }
   try {
-    console.log("[TPL] fbDeleteRegistration — doc id:", id);
-    await deleteDoc(doc(db, "registrations", id));
-    console.log("[TPL] fbDeleteRegistration — supprimé ✓");
+    const q = query(
+      collection(db, "registrations"),
+      where("slot_date", "==", slotDate),
+      where("member_id", "==", memberId),
+    );
+    const snap = await getDocs(q);
+    if (snap.size === 0) {
+      console.error("[TPL] Aucune inscription trouvée pour", slotDate, memberId);
+      return false;
+    }
+    if (snap.size > 1) {
+      console.error("[TPL] ANOMALIE: plusieurs inscriptions trouvées", snap.size);
+    }
+    await deleteDoc(snap.docs[0].ref);
+    console.log("[TPL] Désistement OK — 1 seul document supprimé:", slotDate, memberId);
+    return true;
   } catch (e) {
     console.error("[TPL] fbDeleteRegistration — erreur:", e);
+    return false;
   }
 }
 
