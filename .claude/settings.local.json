@@ -11,7 +11,15 @@
       "Bash(git commit *)",
       "Bash(git branch *)",
       "Bash(git remote *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npx --yes serve . --listen 5500)",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(Get-Content \"C:\\\\Users\\\\hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-hp-Desktop-PM-gare\\\\d8f1b091-6f24-41da-b39e-69622110bdf0\\\\tasks\\\\bmz252zce.output\" -ErrorAction SilentlyContinue)",
+      "Bash(git checkout *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\hp\\\\Desktop\\\\PM gare\" -Force)",
+      "Bash(Select-Object -Property Name, FullName)",
+      "Bash(Format-List)",
+      "Bash(find \"C:\\\\\\\\Users\\\\\\\\hp\\\\\\\\Desktop\\\\\\\\PM gare\" -maxdepth 1 -type f -o -type d)"
     ]
   }
 }
