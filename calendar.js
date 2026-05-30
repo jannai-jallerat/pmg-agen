@@ -30,8 +30,11 @@ export function isMonthAccessibleForMember(year, month) {
 
 export function lockedMonthMessage(targetYear, targetMonth) {
   const today    = new Date();
+  const curYear  = today.getFullYear();
   const curMonth = today.getMonth();
-  return `Disponible le 15 ${MONTHS_FR[curMonth]}`;
+  const offset   = (targetYear - curYear) * 12 + (targetMonth - curMonth);
+  const unlockMonth = (curMonth + offset - 2) % 12;
+  return `Disponible le 15 ${MONTHS_FR[unlockMonth]}`;
 }
 
 /* ── Dots calendrier (slotsMap passé en paramètre) ── */
