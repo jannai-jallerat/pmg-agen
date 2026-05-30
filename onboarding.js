@@ -463,27 +463,40 @@ function _build(member) {
   const overlay = document.createElement('div');
   overlay.className = 'ob-overlay';
   overlay.innerHTML = `
-    <div class="ob-header">
-      <span class="ob-step-label">Étape 1/${total}</span>
-      <button class="ob-skip">Passer</button>
-    </div>
-    <div class="ob-progress">${_dots(0, total)}</div>
-    <div class="ob-body">
-      ${steps.map((s, i) => `
-        <div class="ob-slide${i === 0 ? ' ob-slide-active' : ''}">
-          <div class="ob-screen">${s.html}</div>
-          <div class="ob-caption">
-            <div class="ob-caption-title">${s.title}</div>
-            <div class="ob-caption-body">${s.body}</div>
-          </div>
-        </div>`).join('')}
-    </div>
-    <div class="ob-nav">
-      <button class="ob-prev" style="visibility:hidden">← Précédent</button>
-      <button class="ob-next">Suivant →</button>
+    <div class="ob-popup">
+      <div class="ob-header">
+        <span class="ob-step-label">Étape 1/${total}</span>
+        <button class="ob-skip">✕ Passer</button>
+      </div>
+      <div class="ob-progress">${_dots(0, total)}</div>
+      <div class="ob-body">
+        ${steps.map((s, i) => `
+          <div class="ob-slide${i === 0 ? ' ob-slide-active' : ''}">
+            <div class="ob-screen">
+              <div class="screen-inner">${s.html}</div>
+            </div>
+            <div class="ob-caption">
+              <div class="ob-caption-title">${s.title}</div>
+              <div class="ob-caption-body">${s.body}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="ob-nav">
+        <button class="ob-prev" style="visibility:hidden">← Précédent</button>
+        <button class="ob-next">Suivant →</button>
+      </div>
     </div>`;
 
+  /* Animation d'ouverture */
+  const popup = overlay.querySelector('.ob-popup');
+  popup.style.transform = 'scale(.9)';
+  popup.style.opacity   = '0';
   document.body.appendChild(overlay);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    popup.style.transition = 'transform .3s ease-out, opacity .3s ease-out';
+    popup.style.transform  = 'scale(1)';
+    popup.style.opacity    = '1';
+  }));
 
   const slideEls  = Array.from(overlay.querySelectorAll('.ob-slide'));
   const labelEl   = overlay.querySelector('.ob-step-label');
@@ -527,12 +540,17 @@ function _build(member) {
   });
   skipBtn.addEventListener('click', () => _close(overlay, member.id));
 
-  /* Swipe horizontal */
+  /* Clic sur le fond = fermer */
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) _close(overlay, member.id);
+  });
+
+  /* Swipe horizontal sur la popup */
   let _tx0 = null;
-  overlay.addEventListener('touchstart', e => {
+  popup.addEventListener('touchstart', e => {
     _tx0 = e.touches[0].clientX;
   }, { passive: true });
-  overlay.addEventListener('touchend', e => {
+  popup.addEventListener('touchend', e => {
     if (_tx0 === null) return;
     const dx = e.changedTouches[0].clientX - _tx0;
     _tx0 = null;
@@ -559,7 +577,11 @@ function _dots(active, total) {
 
 function _close(overlay, memberId) {
   localStorage.setItem(`tpl_onboarding_${memberId}`, 'done');
-  overlay.style.transition = 'opacity .3s';
-  overlay.style.opacity    = '0';
-  setTimeout(() => overlay.remove(), 320);
+  const popup = overlay.querySelector('.ob-popup');
+  popup.style.transition   = 'transform .2s ease-in, opacity .2s';
+  popup.style.transform    = 'scale(.95)';
+  popup.style.opacity      = '0';
+  overlay.style.transition = 'background .2s';
+  overlay.style.background = 'rgba(0,0,0,0)';
+  setTimeout(() => overlay.remove(), 220);
 }
