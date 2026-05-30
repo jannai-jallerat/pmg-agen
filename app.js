@@ -15,6 +15,7 @@ import {
 import {
   renderMemberScreen, bindMemberTabs, bindMemberMonthNav, bindModMonthNav,
 } from './member.js';
+import { maybeShowOnboarding } from './onboarding.js';
 import {
   renderAdminScreen,
   bindAdminTabs, bindAdminMonthNav,
@@ -87,14 +88,15 @@ function hideSpinner() {
    auth.js, member.js, admin.js y accèdent via window.*
    car les imports circulaires sont impossibles. */
 
-window.showScreen         = showScreen;
-window.showToast          = showToast;
-window.showError          = showError;
-window.showSpinner        = showSpinner;
-window.hideSpinner        = hideSpinner;
-window.renderMemberScreen = renderMemberScreen;
-window.renderAdminScreen  = renderAdminScreen;
-window.openCloseSlotModal = openCloseSlotModal;
+window.showScreen           = showScreen;
+window.showToast            = showToast;
+window.showError            = showError;
+window.showSpinner          = showSpinner;
+window.hideSpinner          = hideSpinner;
+window.renderMemberScreen   = renderMemberScreen;
+window.renderAdminScreen    = renderAdminScreen;
+window.openCloseSlotModal   = openCloseSlotModal;
+window.maybeShowOnboarding  = maybeShowOnboarding;
 
 /* ── Sync Firebase → localStorage (arrière-plan, non-bloquant) ── */
 

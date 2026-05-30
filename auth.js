@@ -41,6 +41,7 @@ function connectMember(member) {
   console.log("[TPL] 4. renderMemberScreen()");
   window.renderMemberScreen();
   window.showScreen("screen-member");
+  window.maybeShowOnboarding?.(member);
 }
 
 /* ── Login admin ── */
